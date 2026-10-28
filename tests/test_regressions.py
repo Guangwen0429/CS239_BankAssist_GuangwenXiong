@@ -21,6 +21,7 @@ from bankassist.agents import _INTENT_FIELDS, _explain, normalize_request, rule_
 from bankassist.app import BankAssistApp
 from bankassist.bank import APPROVAL_TTL_SECONDS, SEED_DATA, Bank
 from bankassist.run_scenarios import run_scenario
+from bankassist.policy_audit import audit
 from bankassist.scenarios import SCENARIOS
 from bankassist.trace import Tracer
 
@@ -752,6 +753,48 @@ class ParserRound3Test(AppTestBase):
     def test_denial_says_no_money_moved(self):
         reply = self.app.chat(ALICE, ALICE_PIN, "Send $6,000 to ACC-2001")
         self.assertTrue(reply.endswith("No money was moved."), reply)
+
+
+# ===================================== 17. third review: customer switch, audited denials, auditor edge cases
+class ReviewRound3Test(AppTestBase):
+    def test_customer_switch_without_logout_logs_new_customer_in(self):
+        self.app.chat(ALICE, ALICE_PIN, "Send $1,500 to ACC-2001")       # Alice: pending transfer
+        before = self.balance("ACC-1001")
+        reply = self.app.chat(BOB, BOB_PIN, "yes")                       # Bob must not confirm it
+        self.assertEqual(self.balance("ACC-1001"), before)
+        self.assertEqual(self.execute_requests(), [])
+        self.assertIn("nothing waiting", reply)
+        auths = H.messages(self.tracer, to="AuthAgent", performative="authenticate")
+        self.assertEqual([m["payload"]["customer_id"] for m in auths], [ALICE, BOB])
+
+    def test_customer_switch_does_not_show_previous_customers_balance(self):
+        self.app.chat(ALICE, ALICE_PIN, "What's my checking balance?")
+        reply = self.app.chat(BOB, BOB_PIN, "What's my checking balance?")
+        self.assertIn("ACC-2001", reply)
+        self.assertNotIn("ACC-1001", reply)
+
+    def test_denied_confirmation_is_audited(self):
+        self.app.chat(ALICE, ALICE_PIN, "Send $1,500 to ACC-2001")
+        for pend in self.app.risk.pending.values():
+            pend["created_at"] -= APPROVAL_TTL_SECONDS + 100
+        self.app.chat(ALICE, ALICE_PIN, "yes")
+        events = [a["event"] for a in self.bank.audit_log if a["agent"] == "RiskAgent"]
+        self.assertIn("transfer_denied", events)
+        self.assertEqual(audit(self.tracer.to_dict()), [])
+
+    def test_auditor_checks_pin_of_the_customer_who_typed_it(self):
+        self.app.chat(ALICE, ALICE_PIN, "What's my balance?")
+        self.app.new_conversation()
+        self.app.chat(BOB, BOB_PIN, "what's my balance? ref 1234")    # Alice's PIN, typed by Bob
+        self.assertEqual([f.policy for f in audit(self.tracer.to_dict())], [])
+
+    def test_pin_digits_inside_account_id_are_not_masked(self):
+        tracer = Tracer()
+        app = BankAssistApp(tracer=tracer, bank=Bank(seed={**copy.deepcopy(SEED_DATA)}))
+        app.bank.accounts["ACC-1234"] = {"owner": ALICE, "type": "savings", "balance": 5.0}
+        reply = app.chat(ALICE, ALICE_PIN, "balance of ACC-1234")
+        self.assertIn("ACC-1234", H.events(tracer, "user_input")[-1]["content"])
+        self.assertIn("$5.00", reply)
 
 
 if __name__ == "__main__":

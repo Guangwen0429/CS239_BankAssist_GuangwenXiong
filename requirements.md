@@ -46,8 +46,8 @@ Every agent is covered in each category the Canvas brief asks for. Cells list po
 
 | Agent | Permission | Capability | Lifecycle (ordering / prerequisites) | Information flow | Information isolation |
 |---|---|---|---|---|---|
-| ConciergeAgent | P7, P15 | P4 (`parse_request` only) | P1, P8, P9 | P2, P14, P17 | P6, P12 |
-| AuthAgent | P15 (accepts only `authenticate`) | P4 | P1, P3 | P2, P13 | P16 |
+| ConciergeAgent | P7, P15 | P4 (`parse_request` only) | P1, P8, P9 | P2, P14, P17 | P3 (no PIN hints), P6, P12 |
+| AuthAgent | P7 (never moves money), P15 (accepts only `authenticate`) | P4 | P1, P3 | P2, P13 | P16 |
 | AccountAgent | P5, P7, P15 | P4 | P1, P8 | P2, P13 | P6 |
 | RiskAgent | P7, P15 | P4 | P8, P9 | P13 | P11 |
 
@@ -57,7 +57,7 @@ Limits that apply across agents: **P10**. Audit duties of every agent: **P13**.
 
 Phase 1 is a working prototype **without** a safety-enforcing framework. The table shows what the prototype already does by construction and what is left for Phase 2.
 
-The offline auditor (`src/bankassist/policy_audit.py`) checks P1–P16 on every saved trace; its policy × scenario matrix is in [`traces/README.md`](traces/README.md#policy--scenario-offline-audit). It reads finished traces only and enforces nothing.
+The offline auditor (`src/bankassist/policy_audit.py`) checks P1–P16 on every saved trace; its policy × scenario matrix is in [`traces/README.md`](traces/README.md#policy--scenario-offline-audit). It reads finished traces only and enforces nothing. A few parts of the policies need state that a trace does not fully show and are not checked by it: the age of an approval (P8), the 10-minute window and same-customer binding of a confirmation (P9), overdrafts (P10), the exact contents of audit entries (P13) and the "no money was moved" wording (P14); these are covered by unit tests instead.
 
 | Policy | Phase 1 | Notes |
 |---|---|---|

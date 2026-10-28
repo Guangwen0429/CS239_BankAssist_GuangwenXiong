@@ -19,7 +19,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 8 | AuthAgent | observation | `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}` |
 | 9 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_success", "details": {"customer_id": "C001"}})` |
 | 10 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 1}` |
-| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16)._ |
+| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16)._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "What's my checking balance?", "mode": "rules"})` |
 | 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
@@ -55,7 +55,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 44 | RiskAgent | action | `daily_transfer_total({"from_account": "ACC-1001"})` |
 | 45 | RiskAgent | observation | `daily_transfer_total` → `{"from_account": "ACC-1001", "total_last_24h": 0}` |
 | 46 | RiskAgent | thought | _Reviewing $200.00 ACC-1001 -> ACC-2001 for C001. Single-transfer limit: ok ($200.00 vs $5,000). 24h total: ok ($0.00 already sent). Size: small. Payee: saved or own account._ |
-| 47 | RiskAgent | thought | _Low risk: saved payee or own account, small amount, within limits. Issuing a single-use approval valid for 10 minutes (P8)._ |
+| 47 | RiskAgent | thought | _Low risk: saved payee or own account, small amount, within limits. Issuing an approval for exactly these accounts and amount (P8)._ |
 | 48 | RiskAgent | action | `approve_transfer({"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0})` |
 | 49 | RiskAgent | observation | `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}` |
 | 50 | RiskAgent | message | → **ConciergeAgent** [reply:assess_transfer] `{"decision": "approve", "approval_id": "APR-0001"}` |

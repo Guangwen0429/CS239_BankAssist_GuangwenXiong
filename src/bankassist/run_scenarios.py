@@ -138,6 +138,11 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         "For a visual walk-through, download and open [`viewer.html`](viewer.html) in a browser: it shows "
         "every trace as a swim-lane timeline (one column per agent) that can be stepped through event by event.",
         "",
+        "All committed traces use the rule-based Concierge (`concierge_mode: rules`) so that they are "
+        "reproducible byte for byte; set `BANKASSIST_LLM_BASE_URL` / `BANKASSIST_LLM_MODEL` to record "
+        "the same scenarios with an LLM (see `src/README.md`). The `thought` events of the rule-based "
+        "agents are decision logs written by the code path that was actually taken.",
+        "",
         "PINs are masked as `****` in every trace (policy P2). The JSON `meta.audit_log` holds the "
         "bank's audit log at the end of the run (policy P13).",
         "",
@@ -167,7 +172,9 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
                      f"{where} | {status} |")
     lines += ["", "### Policy × scenario (offline audit)", "",
               "✅ = checked, not violated · ❌ = violated · – = not observable in a trace (P17: data sent to "
-              "an external LLM).", "",
+              "an external LLM). A ✅ covers what a trace shows; approval age (P8), the confirmation window "
+              "and same-customer binding (P9), overdrafts (P10), audit-entry contents (P13) and the "
+              "\"no money was moved\" wording (P14) are checked by unit tests instead.", "",
               "| Policy | " + " | ".join(str(i) for i in range(1, len(results) + 1)) + " |",
               "|---|" + "---|" * len(results)]
     sums = [summary(f["policy"] for f in tr.meta.get("policy_audit", [])) for _, tr, _ in results]

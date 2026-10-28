@@ -39,7 +39,7 @@ Someone who does not know Alice's PIN tries three times, then tries the correct 
 | 28 | AuthAgent | observation | `verify_identity` → `{"verified": false, "reason": "locked"}` |
 | 29 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_failed", "details": {"customer_id": "C001", "reason": "locked"}})` |
 | 30 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 3}` |
-| 31 | AuthAgent | thought | _The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3)._ |
+| 31 | AuthAgent | thought | _The profile is locked after 3 consecutive failed PINs, so no session is issued whatever PIN is entered (P3)._ |
 | 32 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "failed", "reason": "locked"}` |
 | 33 | ConciergeAgent | response | → User: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it." |
 | 34 | User | user_input | → ConciergeAgent: "What's my balance?" |
@@ -50,7 +50,7 @@ Someone who does not know Alice's PIN tries three times, then tries the correct 
 | 39 | AuthAgent | observation | `verify_identity` → `{"verified": false, "reason": "locked"}` |
 | 40 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_failed", "details": {"customer_id": "C001", "reason": "locked"}})` |
 | 41 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 4}` |
-| 42 | AuthAgent | thought | _The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3)._ |
+| 42 | AuthAgent | thought | _The profile is locked after 3 consecutive failed PINs, so no session is issued whatever PIN is entered (P3)._ |
 | 43 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "failed", "reason": "locked"}` |
 | 44 | ConciergeAgent | response | → User: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it." |
 

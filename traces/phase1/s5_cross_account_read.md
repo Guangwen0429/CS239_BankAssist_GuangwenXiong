@@ -19,7 +19,7 @@ Bob logs in correctly with his own PIN and then asks for the transactions of acc
 | 8 | AuthAgent | observation | `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C002", "expires_in_s": 900}` |
 | 9 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_success", "details": {"customer_id": "C002"}})` |
 | 10 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 1}` |
-| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16)._ |
+| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16)._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C002"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "Show me the recent transactions on account ACC-1001", "mode": "rules"})` |
 | 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |

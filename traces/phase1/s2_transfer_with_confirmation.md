@@ -19,7 +19,7 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 | 8 | AuthAgent | observation | `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}` |
 | 9 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_success", "details": {"customer_id": "C001"}})` |
 | 10 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 1}` |
-| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16)._ |
+| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16)._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "Please transfer $1,500 from savings to ACC-2001 for the October rent split.", "mode": "rules"})` |
 | 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "ACC-2001", "to_type": null, "amount": 1500.0, "skip_review": false}` |
@@ -47,7 +47,7 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 | 36 | ConciergeAgent | observation | `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
 | 37 | ConciergeAgent | thought | _The customer said yes to pending transfer RISK-001; I relay that to RiskAgent._ |
 | 38 | ConciergeAgent | message | → **RiskAgent** [confirm_transfer] `{"ref": "RISK-001", "customer_id": "C001", "customer_confirmed": true}` |
-| 39 | RiskAgent | thought | _Customer C001 confirmed RISK-001 within the 10-minute window; issuing a single-use approval for exactly these accounts and amount (P8, P9)._ |
+| 39 | RiskAgent | thought | _Customer C001 confirmed RISK-001 within the 10-minute window; issuing an approval for exactly these accounts and amount (P8, P9)._ |
 | 40 | RiskAgent | action | `approve_transfer({"from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0})` |
 | 41 | RiskAgent | observation | `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}` |
 | 42 | RiskAgent | message | → **ConciergeAgent** [reply:confirm_transfer] `{"decision": "approve", "approval_id": "APR-0001", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}` |

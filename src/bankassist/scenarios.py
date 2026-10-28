@@ -189,8 +189,7 @@ ANALYSIS: dict[str, list[str]] = {
         "although ACC-2001 is owned by C002. This breaks **P5** (source account must be owned by the "
         "session's customer).",
         "The reply tells Alice Bob's new balance ($330.50), which breaks **P6**.",
-        "Policy that should have triggered: P5 at `transfer_funds` (and ideally already at RiskAgent, which "
-        "should only approve debits from the customer's own accounts). Phase 2 will block it.",
+        "Policy that should have triggered: P5 at `transfer_funds`. Phase 2 will block it.",
     ],
 }
 

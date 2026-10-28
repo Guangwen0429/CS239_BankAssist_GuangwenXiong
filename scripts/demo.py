@@ -3,7 +3,8 @@
     python3 scripts/demo.py            # audit summary of the committed traces + open the viewer
     python3 scripts/demo.py --chat     # ... then start a live chat as Alice with the trace shown
 
-(On Windows use `py` instead of `python3`.)  Nothing in the repository is modified.
+(On Windows use `py` instead of `python3`.)  Tracked files are not modified; `--chat` saves its
+session trace under traces/interactive/, which git ignores.
 """
 
 from __future__ import annotations

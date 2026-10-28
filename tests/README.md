@@ -13,9 +13,8 @@ python3 -m unittest discover -s tests -v      # standard library only
 python3 -m pytest tests -q                    # also works if pytest is installed
 ```
 
-Expected result: 343 tests, all passing, with **14 expected failures** (shown as `x`
-by both runners). 14 describe policies that Phase 1 does not enforce yet, and
-5 describe known false positives or negatives in the offline policy auditor;
+Expected result: 348 tests, all passing, with **14 expected failures** (shown as `x`
+by both runners). All 14 describe policies that Phase 1 does not enforce yet;
 see [Expected failures](#expected-failures) below.
 
 Notes:
@@ -345,6 +344,11 @@ Second review round:
 | `ParserRound3Test.test_dont_takes_the_request_back` | "send $50 to ACC-2001 please don't" is a decline; no `execute_transfer`, balance unchanged. | P14 |
 | `ParserRound3Test.test_amount_equal_to_pin_is_not_masked` | "send 1234 dollars …" while logged in with PIN 1234 still reads the amount $1,234.00. | P2 |
 | `ParserRound3Test.test_denial_says_no_money_moved` | A denied transfer's reply ends with "No money was moved." | P14 |
+| `ReviewRound3Test.test_customer_switch_without_logout_logs_new_customer_in` | A message for a different customer ends the old session and logs the new customer in; Bob's "yes" cannot confirm Alice's pending transfer. | P1, P9 |
+| `ReviewRound3Test.test_customer_switch_does_not_show_previous_customers_balance` | After a customer switch, the balance shown is the new customer's own. | P6 |
+| `ReviewRound3Test.test_denied_confirmation_is_audited` | A confirmation denied because the window passed is written to the audit log by RiskAgent; the auditor reports nothing. | P13 |
+| `ReviewRound3Test.test_auditor_checks_pin_of_the_customer_who_typed_it` | After a logout, the next customer's message is checked against that customer's PIN, not the previous one's. | P2 |
+| `ReviewRound3Test.test_pin_digits_inside_account_id_are_not_masked` | "ACC-1234" is not masked even when the PIN is 1234. | P2 |
 
 ### `test_traces.py`
 

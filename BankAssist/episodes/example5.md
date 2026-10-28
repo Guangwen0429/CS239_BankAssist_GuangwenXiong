@@ -21,7 +21,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 6. **AuthAgent** observes `verify_identity` → `{"verified": true}`
 7. **AuthAgent** calls `issue_session` with `{"customer_id": "C002"}`
 8. **AuthAgent** observes `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C002", "expires_in_s": 900}`
-11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16).
+11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16).
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C002"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Show me the recent transactions on account ACC-1001", "mode": "rules"}`
 14. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`

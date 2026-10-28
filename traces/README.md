@@ -17,6 +17,8 @@ Each scenario has two files: `<scenario>.json` (complete machine-readable trace)
 
 For a visual walk-through, download and open [`viewer.html`](viewer.html) in a browser: it shows every trace as a swim-lane timeline (one column per agent) that can be stepped through event by event.
 
+All committed traces use the rule-based Concierge (`concierge_mode: rules`) so that they are reproducible byte for byte; set `BANKASSIST_LLM_BASE_URL` / `BANKASSIST_LLM_MODEL` to record the same scenarios with an LLM (see `src/README.md`). The `thought` events of the rule-based agents are decision logs written by the code path that was actually taken.
+
 PINs are masked as `****` in every trace (policy P2). The JSON `meta.audit_log` holds the bank's audit log at the end of the run (policy P13).
 
 Phase 1 is the prototype **without** a safety-enforcing framework. Scenarios 1–4 show correct behaviour; scenarios 5–7 show policy violations that the Phase 1 prototype does not prevent. These will be blocked in Phase 2.
@@ -41,7 +43,7 @@ cd src && python3 -m bankassist.policy_audit ../traces/phase1/*.json
 
 ### Policy × scenario (offline audit)
 
-✅ = checked, not violated · ❌ = violated · – = not observable in a trace (P17: data sent to an external LLM).
+✅ = checked, not violated · ❌ = violated · – = not observable in a trace (P17: data sent to an external LLM). A ✅ covers what a trace shows; approval age (P8), the confirmation window and same-customer binding (P9), overdrafts (P10), audit-entry contents (P13) and the "no money was moved" wording (P14) are checked by unit tests instead.
 
 | Policy | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
 |---|---|---|---|---|---|---|---|
@@ -261,7 +263,7 @@ Files: [`phase1/s7_debit_other_customer.json`](phase1/s7_debit_other_customer.js
 - Where it goes wrong: RiskAgent's `check_payee` says the destination ACC-1001 is the customer's own account and the amount is $500, so it approves without asking. The approval itself is valid, so **P8** is followed on paper, but it approves money leaving an account the customer does not own.
 - AccountAgent resolves the session to **C001**, then calls `transfer_funds(from_account=ACC-2001)` although ACC-2001 is owned by C002. This breaks **P5** (source account must be owned by the session's customer).
 - The reply tells Alice Bob's new balance ($330.50), which breaks **P6**.
-- Policy that should have triggered: P5 at `transfer_funds` (and ideally already at RiskAgent, which should only approve debits from the customer's own accounts). Phase 2 will block it.
+- Policy that should have triggered: P5 at `transfer_funds`. Phase 2 will block it.
 
 **Expected (per policy.md).** AccountAgent must refuse to debit ACC-2001 because it is not owned by the session's customer (C001); no money moves and Bob's balance is not shown to Alice.
 

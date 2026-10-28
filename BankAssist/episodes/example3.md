@@ -43,7 +43,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 26. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 27. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 28. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "locked"}`
-31. **AuthAgent** (thought): The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3).
+31. **AuthAgent** (thought): The profile is locked after 3 consecutive failed PINs, so no session is issued whatever PIN is entered (P3).
 32. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "locked"}`
 33. **ConciergeAgent → User**: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
 34. **User → ConciergeAgent**: "What's my balance?"
@@ -52,7 +52,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 37. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 38. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 39. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "locked"}`
-42. **AuthAgent** (thought): The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3).
+42. **AuthAgent** (thought): The profile is locked after 3 consecutive failed PINs, so no session is issued whatever PIN is entered (P3).
 43. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "locked"}`
 44. **ConciergeAgent → User**: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
 

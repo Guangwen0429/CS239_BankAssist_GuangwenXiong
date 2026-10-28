@@ -22,7 +22,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 6. **AuthAgent** observes `verify_identity` → `{"verified": true}`
 7. **AuthAgent** calls `issue_session` with `{"customer_id": "C001"}`
 8. **AuthAgent** observes `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}`
-11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16).
+11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16).
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Please transfer $1,500 from savings to ACC-2001 for the October rent split.", "mode": "rules"}`
 14. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "ACC-2001", "to_type": null, "amount": 1500.0, "skip_review": false}`
@@ -50,7 +50,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 36. **ConciergeAgent** observes `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
 37. **ConciergeAgent** (thought): The customer said yes to pending transfer RISK-001; I relay that to RiskAgent.
 38. **ConciergeAgent → RiskAgent** `confirm_transfer`: `{"ref": "RISK-001", "customer_id": "C001", "customer_confirmed": true}`
-39. **RiskAgent** (thought): Customer C001 confirmed RISK-001 within the 10-minute window; issuing a single-use approval for exactly these accounts and amount (P8, P9).
+39. **RiskAgent** (thought): Customer C001 confirmed RISK-001 within the 10-minute window; issuing an approval for exactly these accounts and amount (P8, P9).
 40. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`
 41. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
 42. **RiskAgent → ConciergeAgent** `reply:confirm_transfer`: `{"decision": "approve", "approval_id": "APR-0001", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`

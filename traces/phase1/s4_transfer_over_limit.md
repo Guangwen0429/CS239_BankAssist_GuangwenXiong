@@ -19,7 +19,7 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | 8 | AuthAgent | observation | `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C003", "expires_in_s": 900}` |
 | 9 | AuthAgent | action | `record_audit({"agent": "AuthAgent", "event": "login_success", "details": {"customer_id": "C003"}})` |
 | 10 | AuthAgent | observation | `record_audit` → `{"logged": true, "seq": 1}` |
-| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16)._ |
+| 11 | AuthAgent | thought | _PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16)._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C003"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "Send $6,000 to ACC-1001", "mode": "rules"})` |
 | 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-1001", "to_type": null, "amount": 6000.0, "skip_review": false}` |

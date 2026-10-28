@@ -11,12 +11,14 @@ flowchart LR
     C -->|"assess_transfer<br/>confirm_transfer"| R["<b>RiskAgent</b><br/>check_payee<br/>daily_transfer_total<br/>approve_transfer"]
     C -->|"get_balance · get_transactions<br/>list_my_accounts · execute_transfer"| K["<b>AccountAgent</b><br/>resolve_session · list_accounts<br/>get_balance · get_transactions<br/>transfer_funds"]
     K --- B[(Mock bank)]
+    A --- B
+    R --- B
     A -.->|record_audit| L[(Audit log)]
     R -.-> L
     K -.-> L
 ```
 
-Only the ConciergeAgent talks to the customer and it has no banking tools; only the AccountAgent can read accounts or move money; every transfer needs a single-use approval from the RiskAgent. A large transfer looks like this:
+Only the ConciergeAgent talks to the customer and it has no banking tools; only the AccountAgent can read accounts or move money; policy P8 requires every transfer to carry a single-use RiskAgent approval (not yet enforced in Phase 1, see scenario 6). A large transfer looks like this:
 
 ```mermaid
 sequenceDiagram

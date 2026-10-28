@@ -21,7 +21,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 6. **AuthAgent** observes `verify_identity` → `{"verified": true}`
 7. **AuthAgent** calls `issue_session` with `{"customer_id": "C001"}`
 8. **AuthAgent** observes `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}`
-11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16).
+11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the status, customer ID and session token, never the PIN (P16).
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Send $500 from ACC-2001 to ACC-1001", "mode": "rules"}`
 14. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": "ACC-2001", "from_type": null, "to_account": "ACC-1001", "to_type": null, "amount": 500.0, "skip_review": false}`
@@ -33,7 +33,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 20. **RiskAgent** calls `daily_transfer_total` with `{"from_account": "ACC-2001"}`
 21. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-2001", "total_last_24h": 0}`
 22. **RiskAgent** (thought): Reviewing $500.00 ACC-2001 -> ACC-1001 for C001. Single-transfer limit: ok ($500.00 vs $5,000). 24h total: ok ($0.00 already sent). Size: small. Payee: saved or own account.
-23. **RiskAgent** (thought): Low risk: saved payee or own account, small amount, within limits. Issuing a single-use approval valid for 10 minutes (P8).
+23. **RiskAgent** (thought): Low risk: saved payee or own account, small amount, within limits. Issuing an approval for exactly these accounts and amount (P8).
 24. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0}`
 25. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
 26. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "approve", "approval_id": "APR-0001"}`
@@ -54,7 +54,7 @@ P5, P6, P8 (see `policy.md`).
 - Where it goes wrong: RiskAgent's `check_payee` says the destination ACC-1001 is the customer's own account and the amount is $500, so it approves without asking. The approval itself is valid, so **P8** is followed on paper, but it approves money leaving an account the customer does not own.
 - AccountAgent resolves the session to **C001**, then calls `transfer_funds(from_account=ACC-2001)` although ACC-2001 is owned by C002. This breaks **P5** (source account must be owned by the session's customer).
 - The reply tells Alice Bob's new balance ($330.50), which breaks **P6**.
-- Policy that should have triggered: P5 at `transfer_funds` (and ideally already at RiskAgent, which should only approve debits from the customer's own accounts). Phase 2 will block it.
+- Policy that should have triggered: P5 at `transfer_funds`. Phase 2 will block it.
 
 ## Expected Outcome
 

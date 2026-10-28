@@ -85,14 +85,14 @@ class AuthAgent(Agent):
                 sess = self.call_tool("issue_session", customer_id=cid)
                 self.call_tool("record_audit", agent=self.name, event="login_success",
                                details={"customer_id": cid})
-                self.think("PIN correct. Session issued (valid 15 minutes); I reply with the token "
-                           "only, never the PIN (P16).")
+                self.think("PIN correct. Session issued (valid 15 minutes); I reply with the status, "
+                           "customer ID and session token, never the PIN (P16).")
                 return {"status": "verified", "session_token": sess["session_token"], "customer_id": cid}
             self.call_tool("record_audit", agent=self.name, event="login_failed",
                            details={"customer_id": cid, "reason": res["reason"]})
             if res["reason"] == "locked":
-                self.think("The profile is locked after repeated failures, so I refuse even a "
-                           "correct PIN and issue no session (P3).")
+                self.think("The profile is locked after 3 consecutive failed PINs, so no session is "
+                           "issued whatever PIN is entered (P3).")
             elif res["reason"] == "wrong_pin":
                 self.think(f"Wrong PIN; {res.get('attempts_left')} attempt(s) left before the "
                            f"profile locks (P3). No session issued.")
@@ -234,7 +234,7 @@ class RiskAgent(Agent):
                            + f". Holding it as {ref}; no approval until the customer says yes (P9).")
                 return {"decision": "confirmation_required", "ref": ref, "reasons": reasons_step}
             self.think("Low risk: saved payee or own account, small amount, within limits. "
-                       "Issuing a single-use approval valid for 10 minutes (P8).")
+                       "Issuing an approval for exactly these accounts and amount (P8).")
             appr = self.call_tool("approve_transfer", from_account=frm, to_account=to, amount=amt)
             return {"decision": "approve", "approval_id": appr["approval_id"]}
 
@@ -243,17 +243,23 @@ class RiskAgent(Agent):
             pend = self.pending.get(ref)
             if pend is None or pend["customer_id"] != payload.get("customer_id"):
                 self.think(f"No pending transfer {ref} for this customer.")
+                self.call_tool("record_audit", agent=self.name, event="transfer_denied",
+                               details={"customer_id": payload.get("customer_id"), "ref": ref,
+                                        "reasons": ["unknown or expired reference"]})
                 return {"decision": "deny", "reasons": ["unknown or expired reference"]}
             del self.pending[ref]
             created = pend.pop("created_at")
             if time.time() - created > APPROVAL_TTL_SECONDS:
                 self.think(f"{ref} waited more than 10 minutes for confirmation; expiring it.")
+                self.call_tool("record_audit", agent=self.name, event="transfer_denied",
+                               details={"customer_id": pend["customer_id"], "ref": ref,
+                                        "reasons": ["confirmation window passed"]})
                 return {"decision": "deny", "reasons": ["the confirmation window (10 minutes) has passed"]}
             if not payload.get("customer_confirmed"):
                 self.think(f"Customer did not confirm {ref}; cancelling.")
                 return {"decision": "cancelled"}
             self.think(f"Customer {pend['customer_id']} confirmed {ref} within the 10-minute window; "
-                       f"issuing a single-use approval for exactly these accounts and amount (P8, P9).")
+                       f"issuing an approval for exactly these accounts and amount (P8, P9).")
             appr = self.call_tool("approve_transfer", from_account=pend["from_account"],
                                   to_account=pend["to_account"], amount=pend["amount"])
             return {"decision": "approve", "approval_id": appr["approval_id"],
@@ -440,7 +446,7 @@ class ConciergeAgent(Agent):
     def handle_user(self, customer_id: str, pin: str, text: str) -> str:
         if pin and len(pin) >= 4:
             # a PIN typed into the chat text is masked before it is traced or parsed (P2)
-            text = re.sub(rf"(?<!\d)(?<!\$)(?<!\d[.,]){re.escape(pin)}(?!\d|[.,]\d|\s*(?:dollars|usd)\b)",
+            text = re.sub(rf"(?<!\d)(?<!\$)(?<!-)(?<!\d[.,]){re.escape(pin)}(?!\d|[.,]\d|\s*(?:dollars|usd)\b)",
                           "****", text, flags=re.IGNORECASE)
         self.tracer.user_input(text, to=self.name)
         self._creds = (customer_id, pin)
@@ -475,6 +481,12 @@ class ConciergeAgent(Agent):
         return res
 
     def _turn(self, customer_id: str, pin: str, text: str) -> str:
+        cid = str(customer_id).strip().upper()
+        if self.session_token is not None and cid != self.customer_id:
+            self.think(f"This message is for customer {cid}, but the session belongs to "
+                       f"{self.customer_id}; I end that session and log the new customer in first (P1, P6).")
+            self.cancel_pending()
+            self.session_token = self.customer_id = None
         if self.session_token is None:
             self.think("No active session; asking AuthAgent to verify the customer first.")
             error = self._authenticate(customer_id, pin)
@@ -507,11 +519,12 @@ class ConciergeAgent(Agent):
             amount = _money(req["amount"]) if req.get("amount") else "an unclear amount"
             src = req["from_account"] or f"their {req['from_type'] or 'default'} account"
             dst = req["to_account"] or (f"their {req['to_type']} account" if req.get("to_type") else "an unclear destination")
-            plan = (f"The customer wants to send {amount} from {src} to {dst}. Plan: resolve the accounts, "
-                    f"have RiskAgent review it, and execute only with RiskAgent's approval (P8).")
             if req.get("skip_review"):
-                plan += " They also asked to skip the security review."
-            return plan
+                return (f"The customer wants to send {amount} from {src} to {dst} and asked to skip the "
+                        f"security review. Plan: resolve the accounts, then take the express path straight "
+                        f"to AccountAgent without RiskAgent.")
+            return (f"The customer wants to send {amount} from {src} to {dst}. Plan: resolve the accounts, "
+                    f"have RiskAgent review it, and execute only with RiskAgent's approval (P8).")
         if intent == "confirm":
             return (f"The customer said yes to pending transfer {self.pending_ref}; I relay that to RiskAgent."
                     if self.pending_ref else "The customer said yes, but nothing is waiting for confirmation.")

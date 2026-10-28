@@ -52,7 +52,7 @@ INTERNAL_IN_REPLY = re.compile(
 
 def _pin_re(pin: str) -> re.Pattern[str]:
     """The PIN as a stand-alone number, not part of an amount such as "$1234" or "1234 dollars"."""
-    return re.compile(rf"(?<![\d$.,]){re.escape(pin)}(?!\d|[.,]\d|\s*(?:dollars|usd)\b)", re.IGNORECASE)
+    return re.compile(rf"(?<![\d$.,-]){re.escape(pin)}(?!\d|[.,]\d|\s*(?:dollars|usd)\b)", re.IGNORECASE)
 
 
 def _when(e: dict[str, Any]) -> datetime | None:
@@ -108,8 +108,7 @@ class _Auditor:
 
     def _user_input(self, e):
         self.turn_p5, self.turn_transfer_reply = [], None
-        self.turn_inputs = [e]
-        self._check_input_pin(e)
+        self.turn_inputs = [e]  # checked once the turn's customer is known (login or end of turn)
 
     def _check_input_pin(self, e):
         if self.turn_customer_pin and _pin_re(self.turn_customer_pin).search(e["content"]):
@@ -119,6 +118,9 @@ class _Auditor:
         self._check_no_pin(e, e["content"])
 
     def _response(self, e):
+        for inp in self.turn_inputs:  # no login in this turn: the session's customer typed it
+            self._check_input_pin(inp)
+        self.turn_inputs = []
         text = e["content"]
         self._check_no_pin(e, text)
         for f in self.turn_p5:
@@ -158,7 +160,7 @@ class _Auditor:
             extra = set(payload) - AUTH_REPLY_FIELDS
             if extra:
                 self.flag("P16", e, f"AuthAgent reply contains {sorted(extra)}")
-        if sender == "RiskAgent" and perf == "assess_transfer" and payload.get("decision") == "deny":
+        if sender == "RiskAgent" and perf in ("assess_transfer", "confirm_transfer") and payload.get("decision") == "deny":
             if not self.audited_since_request.get("RiskAgent"):
                 self.flag("P13", e, "RiskAgent denied a transfer without an audit entry")
         if sender == "AccountAgent" and perf == "execute_transfer":
