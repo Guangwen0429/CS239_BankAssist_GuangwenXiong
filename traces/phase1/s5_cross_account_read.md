@@ -22,7 +22,7 @@ Bob logs in correctly with his own PIN and then asks for the transactions of acc
 | 11 | AuthAgent | thought | _PIN correct; session issued._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C002"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "Show me the recent transactions on account ACC-1001", "mode": "rules"})` |
-| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}` |
+| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
 | 15 | ConciergeAgent | message | → **AccountAgent** [get_transactions] `{"session_token": "sess_31081e644773", "account_id": "ACC-1001", "account_type": null}` |
 | 16 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 17 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C002"}` |

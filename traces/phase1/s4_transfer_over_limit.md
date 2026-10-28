@@ -22,7 +22,7 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | 11 | AuthAgent | thought | _PIN correct; session issued._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C003"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "Send $6,000 to ACC-1001", "mode": "rules"})` |
-| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-1001", "amount": 6000.0, "skip_review": false}` |
+| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-1001", "to_type": null, "amount": 6000.0, "skip_review": false}` |
 | 15 | ConciergeAgent | message | → **AccountAgent** [list_my_accounts] `{"session_token": "sess_31081e644773"}` |
 | 16 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 17 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C003"}` |

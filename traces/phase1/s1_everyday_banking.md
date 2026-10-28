@@ -22,7 +22,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 11 | AuthAgent | thought | _PIN correct; session issued._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "What's my checking balance?", "mode": "rules"})` |
-| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}` |
+| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
 | 15 | ConciergeAgent | message | → **AccountAgent** [get_balance] `{"session_token": "sess_31081e644773", "account_id": null, "account_type": "checking"}` |
 | 16 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 17 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C001"}` |
@@ -37,7 +37,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 26 | ConciergeAgent | response | → User: "The balance of checking account ACC-1001 is $2,450.00." |
 | 27 | User | user_input | → ConciergeAgent: "Send $200 to ACC-2001" |
 | 28 | ConciergeAgent | action | `parse_request({"text": "Send $200 to ACC-2001", "mode": "rules"})` |
-| 29 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "amount": 200.0, "skip_review": false}` |
+| 29 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "to_type": null, "amount": 200.0, "skip_review": false}` |
 | 30 | ConciergeAgent | message | → **AccountAgent** [list_my_accounts] `{"session_token": "sess_31081e644773"}` |
 | 31 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 32 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C001"}` |
@@ -66,7 +66,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 55 | ConciergeAgent | response | → User: "Done. Sent $200.00 from ACC-1001 to ACC-2001 (transfer TRF-0001). New balance: $2,250.00." |
 | 56 | User | user_input | → ConciergeAgent: "Show my recent transactions" |
 | 57 | ConciergeAgent | action | `parse_request({"text": "Show my recent transactions", "mode": "rules"})` |
-| 58 | ConciergeAgent | observation | `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}` |
+| 58 | ConciergeAgent | observation | `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
 | 59 | ConciergeAgent | message | → **AccountAgent** [get_transactions] `{"session_token": "sess_31081e644773", "account_id": null, "account_type": null}` |
 | 60 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 61 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C001"}` |

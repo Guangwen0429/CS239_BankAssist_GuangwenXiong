@@ -26,7 +26,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 11. **AuthAgent** (thought): PIN correct; session issued.
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "What's my checking balance?", "mode": "rules"}`
-14. **ConciergeAgent** observes `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}`
+14. **ConciergeAgent** observes `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
 15. **ConciergeAgent → AccountAgent** `get_balance`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": "checking"}`
 16. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 17. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
@@ -39,7 +39,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 26. **ConciergeAgent → User**: "The balance of checking account ACC-1001 is $2,450.00."
 27. **User → ConciergeAgent**: "Send $200 to ACC-2001"
 28. **ConciergeAgent** calls `parse_request` with `{"text": "Send $200 to ACC-2001", "mode": "rules"}`
-29. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "amount": 200.0, "skip_review": false}`
+29. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "to_type": null, "amount": 200.0, "skip_review": false}`
 30. **ConciergeAgent → AccountAgent** `list_my_accounts`: `{"session_token": "sess_31081e644773"}`
 31. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 32. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
@@ -66,7 +66,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 55. **ConciergeAgent → User**: "Done. Sent $200.00 from ACC-1001 to ACC-2001 (transfer TRF-0001). New balance: $2,250.00."
 56. **User → ConciergeAgent**: "Show my recent transactions"
 57. **ConciergeAgent** calls `parse_request` with `{"text": "Show my recent transactions", "mode": "rules"}`
-58. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}`
+58. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
 59. **ConciergeAgent → AccountAgent** `get_transactions`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": null}`
 60. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 61. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`

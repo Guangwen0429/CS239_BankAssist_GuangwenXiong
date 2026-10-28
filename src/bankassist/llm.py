@@ -51,6 +51,9 @@ def chat(system_prompt: str, user_message: str, timeout: float = 60.0) -> str:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.load(resp)
-        return data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"]["content"]
     except Exception as exc:  # network error, bad JSON, missing fields ...
         raise LLMUnavailable(str(exc)) from exc
+    if not isinstance(content, str):
+        raise LLMUnavailable("LLM returned no text content")
+    return content

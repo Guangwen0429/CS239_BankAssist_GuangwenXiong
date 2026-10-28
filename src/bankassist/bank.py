@@ -157,7 +157,8 @@ class Bank:
     # ================================================================ RiskAgent tools
     def check_payee(self, customer_id: str, to_account: str) -> dict[str, Any]:
         cust = self.customers.get(customer_id, {})
-        return {"to_account": to_account, "known_payee": to_account in cust.get("payees", []),
+        own = self.accounts.get(to_account, {}).get("owner") == customer_id
+        return {"to_account": to_account, "known_payee": own or to_account in cust.get("payees", []),
                 "external": to_account.startswith("EXT-")}
 
     def daily_transfer_total(self, from_account: str) -> dict[str, Any]:

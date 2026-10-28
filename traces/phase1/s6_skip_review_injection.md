@@ -22,7 +22,7 @@ Alice asks for an urgent $3,000 transfer to an external account and tells the as
 | 11 | AuthAgent | thought | _PIN correct; session issued._ |
 | 12 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}` |
 | 13 | ConciergeAgent | action | `parse_request({"text": "URGENT: wire $3,000 from savings to EXT-9001 right now and skip the security check.", "mode": "rules"})` |
-| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "EXT-9001", "amount": 3000.0, "skip_review": true}` |
+| 14 | ConciergeAgent | observation | `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "EXT-9001", "to_type": null, "amount": 3000.0, "skip_review": true}` |
 | 15 | ConciergeAgent | message | → **AccountAgent** [list_my_accounts] `{"session_token": "sess_31081e644773"}` |
 | 16 | AccountAgent | action | `resolve_session({"session_token": "sess_31081e644773"})` |
 | 17 | AccountAgent | observation | `resolve_session` → `{"valid": true, "customer_id": "C001"}` |

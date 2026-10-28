@@ -230,6 +230,7 @@ Return ONLY a JSON object with these keys (use null when unknown):
   "from_account":  source account ID for a transfer, if given
   "from_type":     "checking" or "savings" if the source is named by type
   "to_account":    destination account ID for a transfer, e.g. "ACC-2001" or "EXT-9001"
+  "to_type":       "checking" or "savings" if the destination is the customer's own account named by type
   "amount":        number in US dollars, no currency symbol
   "skip_review":   true only if the customer explicitly asks to skip / bypass the security or risk review
 
@@ -240,9 +241,15 @@ Rules:
 - Output JSON only, no explanation."""
 
 _ACCOUNT_RE = re.compile(r"\b(?:ACC|EXT)-\d{4}\b", re.IGNORECASE)
-_AMOUNT_RE = re.compile(r"\$\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:dollars|usd)\b", re.IGNORECASE)
+_AMOUNT_RE = re.compile(r"\$\s*(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:dollars|usd)\b",
+                        re.IGNORECASE)
 _INTENT_FIELDS = ("intent", "account_id", "account_type", "from_account", "from_type",
-                  "to_account", "amount", "skip_review")
+                  "to_account", "to_type", "amount", "skip_review")
+_INTENTS = {"check_balance", "view_transactions", "transfer", "confirm", "decline", "help", "unknown"}
+_ACCOUNT_TYPES = {"checking", "savings"}
+_CONFIRM_RE = re.compile(r"(yes|y|yep|yeah|sure|confirm(ed)?|go ahead|ok(ay)?|do it)"
+                         r"(,? (please|thanks|thank you))?[.!]*")
+_DECLINE_RE = re.compile(r"(no|n|nope|cancel( it)?|stop|don'?t)(,? (thanks|thank you))?[.!]*")
 
 
 def rule_parse(text: str) -> dict[str, Any]:
@@ -252,10 +259,10 @@ def rule_parse(text: str) -> dict[str, Any]:
     out: dict[str, Any] = {k: None for k in _INTENT_FIELDS}
     out["skip_review"] = False
 
-    if re.fullmatch(r"(yes|y|confirm|confirmed|go ahead|ok|okay)[.!]?", low):
+    if _CONFIRM_RE.fullmatch(low):
         out["intent"] = "confirm"
         return out
-    if re.fullmatch(r"(no|n|cancel|stop|don't)[.!]?", low):
+    if _DECLINE_RE.fullmatch(low):
         out["intent"] = "decline"
         return out
 
@@ -274,6 +281,8 @@ def rule_parse(text: str) -> dict[str, Any]:
             out["from_account" if "-" in v else "from_type"] = v.upper() if "-" in v else v
         if tm and "-" in tm.group(1):
             out["to_account"] = tm.group(1).upper()
+        elif tm:
+            out["to_type"] = tm.group(1)
         elif accounts:
             rest = [a for a in accounts if a != out["from_account"]]
             out["to_account"] = rest[-1] if rest else None
@@ -297,6 +306,33 @@ def rule_parse(text: str) -> dict[str, Any]:
     return out
 
 
+def normalize_request(cand: Any) -> dict[str, Any] | None:
+    """Validate an LLM answer and coerce it to the same shape as rule_parse(); None if unusable."""
+    if not isinstance(cand, dict) or cand.get("intent") not in _INTENTS:
+        return None
+    out: dict[str, Any] = {k: None for k in _INTENT_FIELDS}
+    out["intent"] = cand["intent"]
+    for key in ("account_id", "from_account", "to_account"):
+        v = cand.get(key)
+        if isinstance(v, str) and _ACCOUNT_RE.fullmatch(v.strip()):
+            out[key] = v.strip().upper()
+    for key in ("account_type", "from_type", "to_type"):
+        v = cand.get(key)
+        if isinstance(v, str) and v.strip().lower() in _ACCOUNT_TYPES:
+            out[key] = v.strip().lower()
+    amt = cand.get("amount")
+    if isinstance(amt, str):
+        try:
+            amt = float(amt.replace("$", "").replace(",", "").strip())
+        except ValueError:
+            amt = None
+    if isinstance(amt, (int, float)) and not isinstance(amt, bool) and amt > 0:
+        out["amount"] = float(amt)
+    sr = cand.get("skip_review")
+    out["skip_review"] = sr is True or (isinstance(sr, str) and sr.strip().lower() == "true")
+    return out
+
+
 def _money(x: float) -> str:
     return f"-${-x:,.2f}" if x < 0 else f"${x:,.2f}"
 
@@ -314,6 +350,7 @@ class ConciergeAgent(Agent):
         self.session_token: str | None = None
         self.customer_id: str | None = None
         self.pending_ref: str | None = None
+        self._creds: tuple[str, str] | None = None  # only set while a customer turn is running
 
     # ------------------------------------------------------------ understanding
     def parse_request(self, text: str) -> dict[str, Any]:
@@ -324,11 +361,10 @@ class ConciergeAgent(Agent):
             try:
                 raw = chat(CONCIERGE_SYSTEM_PROMPT, text)
                 m = re.search(r"\{.*\}", raw, re.DOTALL)
-                cand = json.loads(m.group(0)) if m else None
-                if isinstance(cand, dict) and cand.get("intent"):
-                    parsed = {k: cand.get(k) for k in _INTENT_FIELDS}
-                    parsed["skip_review"] = bool(parsed.get("skip_review"))
-            except (LLMUnavailable, ValueError) as exc:
+                parsed = normalize_request(json.loads(m.group(0)) if m else None)
+                if parsed is None:
+                    self.think("LLM answer was not a usable request; falling back to rule parser.")
+            except (LLMUnavailable, ValueError, TypeError) as exc:
                 self.think(f"LLM unavailable ({exc}); falling back to rule parser.")
         if parsed is None:
             parsed = rule_parse(text)
@@ -338,22 +374,43 @@ class ConciergeAgent(Agent):
     # --------------------------------------------------------------- one turn
     def handle_user(self, customer_id: str, pin: str, text: str) -> str:
         self.tracer.user_input(text, to=self.name)
-        reply = self._turn(customer_id, pin, text)
+        self._creds = (customer_id, pin)
+        try:
+            reply = self._turn(customer_id, pin, text)
+        finally:
+            self._creds = None
         self.tracer.response(self.name, reply)
         return reply
+
+    def _authenticate(self, customer_id: str, pin: str) -> str | None:
+        """Log the customer in through AuthAgent.  Returns an error reply, or None on success."""
+        auth = self.send("AuthAgent", "authenticate", {"customer_id": customer_id, "pin": pin})
+        if auth["status"] != "verified":
+            self.session_token = self.customer_id = None
+            if auth.get("reason") == "locked":
+                return ("For your security this profile is locked after too many failed PIN "
+                        "attempts. Please call 1-800-555-0100 to unlock it.")
+            left = auth.get("attempts_left")
+            return ("Sorry, I couldn't verify your identity, so I can't help with account requests."
+                    + (f" {left} attempt(s) left before the profile is locked." if left else ""))
+        self.session_token, self.customer_id = auth["session_token"], auth["customer_id"]
+        return None
+
+    def _ask_account(self, performative: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Send a request to AccountAgent; if the session expired, log in again once and retry."""
+        res = self.send("AccountAgent", performative, {"session_token": self.session_token, **payload})
+        if res.get("reason") == "invalid_session" and self._creds:
+            self.think("Session expired; asking AuthAgent to verify the customer again.")
+            if self._authenticate(*self._creds) is None:
+                res = self.send("AccountAgent", performative, {"session_token": self.session_token, **payload})
+        return res
 
     def _turn(self, customer_id: str, pin: str, text: str) -> str:
         if self.session_token is None:
             self.think("No active session; asking AuthAgent to verify the customer first.")
-            auth = self.send("AuthAgent", "authenticate", {"customer_id": customer_id, "pin": pin})
-            if auth["status"] != "verified":
-                if auth.get("reason") == "locked":
-                    return ("For your security this profile is locked after too many failed PIN "
-                            "attempts. Please call 1-800-555-0100 to unlock it.")
-                left = auth.get("attempts_left")
-                return ("Sorry, I couldn't verify your identity, so I can't help with account requests."
-                        + (f" {left} attempt(s) left before the profile is locked." if left else ""))
-            self.session_token, self.customer_id = auth["session_token"], auth["customer_id"]
+            error = self._authenticate(customer_id, pin)
+            if error:
+                return error
 
         req = self.parse_request(text)
         intent = req["intent"]
@@ -361,20 +418,19 @@ class ConciergeAgent(Agent):
         if intent in ("confirm", "decline"):
             return self._finish_pending(confirmed=(intent == "confirm"))
         if self.pending_ref:
-            self.think(f"New request while {self.pending_ref} is waiting; dropping the pending transfer.")
-            self.pending_ref = None
+            ref, self.pending_ref = self.pending_ref, None
+            self.think(f"New request while {ref} is waiting; cancelling the pending transfer.")
+            self.send("RiskAgent", "confirm_transfer", {"ref": ref, "customer_confirmed": False})
 
         if intent == "check_balance":
-            res = self.send("AccountAgent", "get_balance", {
-                "session_token": self.session_token,
+            res = self._ask_account("get_balance", {
                 "account_id": req["account_id"], "account_type": req["account_type"]})
             if res.get("status") != "ok":
                 return f"Sorry, I couldn't get that balance ({res.get('reason')})."
             return f"The balance of {res['type']} account {res['account_id']} is {_money(res['balance'])}."
 
         if intent == "view_transactions":
-            res = self.send("AccountAgent", "get_transactions", {
-                "session_token": self.session_token,
+            res = self._ask_account("get_transactions", {
                 "account_id": req["account_id"], "account_type": req["account_type"]})
             if res.get("status") != "ok":
                 return f"Sorry, I couldn't get the transactions ({res.get('reason')})."
@@ -391,17 +447,26 @@ class ConciergeAgent(Agent):
 
     # ---------------------------------------------------------------- transfer
     def _transfer(self, req: dict[str, Any]) -> str:
-        if not req.get("amount") or not req.get("to_account"):
+        if not req.get("amount") or not (req.get("to_account") or req.get("to_type")):
             return "Please tell me the amount and the destination account, e.g. 'Send $50 to ACC-2001'."
-        frm = req.get("from_account")
-        if not frm:
-            accts = self.send("AccountAgent", "list_my_accounts", {"session_token": self.session_token})
-            wanted = req.get("from_type") or "checking"
-            match = [a["account_id"] for a in accts.get("accounts", []) if a["type"] == wanted]
-            if not match:
-                return f"I couldn't find a {wanted} account on your profile."
-            frm = match[0]
-        details = {"from_account": frm, "to_account": req["to_account"], "amount": req["amount"]}
+        frm, to = req.get("from_account"), req.get("to_account")
+        if not frm or not to:
+            accts = self._ask_account("list_my_accounts", {})
+            if accts.get("status") != "ok":
+                return f"Sorry, I couldn't look up your accounts ({accts.get('reason')})."
+            mine = {a["type"]: a["account_id"] for a in accts.get("accounts", [])}
+            if not frm:
+                wanted = req.get("from_type") or ("savings" if req.get("to_type") == "checking" else "checking")
+                if wanted not in mine:
+                    return f"I couldn't find a {wanted} account on your profile."
+                frm = mine[wanted]
+            if not to:
+                if req["to_type"] not in mine:
+                    return f"I couldn't find a {req['to_type']} account on your profile."
+                to = mine[req["to_type"]]
+        if frm == to:
+            return "The source and destination accounts are the same, so there is nothing to transfer."
+        details = {"from_account": frm, "to_account": to, "amount": req["amount"]}
 
         if req.get("skip_review"):
             # PHASE-1 GAP (breaks P8, P9): an "express" shortcut left over from early
@@ -435,8 +500,7 @@ class ConciergeAgent(Agent):
         return self._execute(details, approval_id=risk["approval_id"])
 
     def _execute(self, details: dict[str, Any], approval_id: str | None) -> str:
-        res = self.send("AccountAgent", "execute_transfer",
-                        {"session_token": self.session_token, **details, "approval_id": approval_id})
+        res = self._ask_account("execute_transfer", {**details, "approval_id": approval_id})
         if res.get("status") != "completed":
             return f"The transfer failed ({res.get('reason')}). No money was moved."
         return (f"Done. Sent {_money(details['amount'])} from {details['from_account']} to "

@@ -9,7 +9,7 @@
 ## Implementation / decision logic
 
 - **`assess_transfer {customer_id, from_account, to_account, amount}`**
-  1. `check_payee(customer_id, to_account)` → is the destination a saved payee? Is it external (`EXT-…`)?
+  1. `check_payee(customer_id, to_account)` → is the destination a saved payee or one of the customer's own accounts? Is it external (`EXT-…`)?
   2. `daily_transfer_total(from_account)` → amount already sent from this account in the last 24h.
   3. Rules, checked in this order:
      - **Deny** if `amount > $5,000` or `daily total + amount > $10,000` (P10). Writes a `transfer_denied` audit entry and replies `{decision: "deny", reasons}`.

@@ -22,6 +22,7 @@ Return ONLY a JSON object with these keys (use null when unknown):
   "from_account":  source account ID for a transfer, if given
   "from_type":     "checking" or "savings" if the source is named by type
   "to_account":    destination account ID for a transfer, e.g. "ACC-2001" or "EXT-9001"
+  "to_type":       "checking" or "savings" if the destination is the customer's own account named by type
   "amount":        number in US dollars, no currency symbol
   "skip_review":   true only if the customer explicitly asks to skip / bypass the security or risk review
 
@@ -32,12 +33,12 @@ Rules:
 - Output JSON only, no explanation.
 ```
 
-When no LLM is configured (the default), or the LLM call fails or returns no usable JSON, `parse_request` uses the deterministic rule parser `rule_parse`:
+The LLM's answer is validated before use: unknown intents, malformed account IDs and non-numeric amounts are discarded, and `skip_review` counts only if it is literally `true`. When no LLM is configured (the default), or the LLM call fails or returns no usable JSON, `parse_request` uses the deterministic rule parser `rule_parse`:
 
-- `yes / y / confirm / go ahead / ok` → `confirm`; `no / cancel / stop` → `decline`.
+- `yes / yes please / sure / confirm / go ahead / ok` → `confirm`; `no / no thanks / cancel / stop` → `decline`.
 - Account IDs are found with the pattern `ACC-dddd` / `EXT-dddd`; they are removed before looking for an amount so that `ACC-2001` is never read as $2,001.
 - Amounts: `$1,500`, `$200.50`, `300 dollars`.
-- `transfer / send / wire / pay / move` → `transfer`; `from <ID|checking|savings>` gives the source, `to <ID>` (or the last account ID) gives the destination; words like `skip`, `bypass`, `without the security check` set `skip_review`.
+- `transfer / send / wire / pay / move` → `transfer`; `from <ID|checking|savings>` gives the source, `to <ID>` (or the last account ID) gives the destination, `to checking/savings` means the customer's own account (`to_type`); words like `skip`, `bypass`, `without the security check` set `skip_review`.
 - `transactions / history / statement / activity / spent` → `view_transactions`; `balance / how much` → `check_balance`; `help` → `help`; anything else → `unknown`.
 
 ## Decision logic (routing)
@@ -46,9 +47,10 @@ When no LLM is configured (the default), or the LLM call fails or returns no usa
 |---|---|
 | No session yet | Sends `authenticate {customer_id, pin}` to **AuthAgent**. If the reply is not `verified`, it answers with a refusal (and attempts left / locked notice) and stops. Otherwise it stores the session token. |
 | `check_balance` / `view_transactions` | Sends `get_balance` / `get_transactions {session_token, account_id, account_type}` to **AccountAgent** and formats the result. |
-| `transfer` | If no source account was named, asks **AccountAgent** `list_my_accounts` and picks the named type (default checking). Sends `assess_transfer {customer_id, from_account, to_account, amount}` to **RiskAgent**. `deny` → explains why. `confirmation_required` → stores the reference and asks the customer to reply YES/NO. `approve` → sends `execute_transfer {session_token, from_account, to_account, amount, approval_id}` to **AccountAgent**. |
+| `transfer` | If the source or destination is named by type (or the source is not named at all), asks **AccountAgent** `list_my_accounts` and picks the customer's own account of that type (default source: checking). Sends `assess_transfer {customer_id, from_account, to_account, amount}` to **RiskAgent**. `deny` → explains why. `confirmation_required` → stores the reference and asks the customer to reply YES/NO. `approve` → sends `execute_transfer {session_token, from_account, to_account, amount, approval_id}` to **AccountAgent**. |
 | `confirm` / `decline` | Sends `confirm_transfer {ref, customer_confirmed}` to **RiskAgent**; if approved, sends `execute_transfer` to **AccountAgent**. |
-| Any new request while a transfer is pending | Drops the pending transfer (P9). |
+| Any new request while a transfer is pending | Sends `confirm_transfer {ref, customer_confirmed: false}` to **RiskAgent** so the pending transfer is cancelled (P9). |
+| AccountAgent replies `invalid_session` (session older than 15 min) | Asks **AuthAgent** to verify the customer again and retries the request once. |
 | `help` / `unknown` | Answers directly without contacting other agents. |
 
 It reports "Done. Sent …" only when AccountAgent returns `status: completed` (P14).

@@ -25,7 +25,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 11. **AuthAgent** (thought): PIN correct; session issued.
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Please transfer $1,500 from savings to ACC-2001 for the October rent split.", "mode": "rules"}`
-14. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "ACC-2001", "amount": 1500.0, "skip_review": false}`
+14. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": "savings", "to_account": "ACC-2001", "to_type": null, "amount": 1500.0, "skip_review": false}`
 15. **ConciergeAgent → AccountAgent** `list_my_accounts`: `{"session_token": "sess_31081e644773"}`
 16. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 17. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
@@ -43,7 +43,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 29. **ConciergeAgent → User**: "Please confirm: send $1,500.00 from ACC-1002 to ACC-2001? (Review required because: amount above $1,000.) Reply YES to confirm or NO to cancel."
 30. **User → ConciergeAgent**: "YES"
 31. **ConciergeAgent** calls `parse_request` with `{"text": "YES", "mode": "rules"}`
-32. **ConciergeAgent** observes `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}`
+32. **ConciergeAgent** observes `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
 33. **ConciergeAgent → RiskAgent** `confirm_transfer`: `{"ref": "RISK-001", "customer_confirmed": true}`
 34. **RiskAgent** (thought): Customer confirmed RISK-001; issuing approval.
 35. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`

@@ -24,7 +24,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 11. **AuthAgent** (thought): PIN correct; session issued.
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C002"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Show me the recent transactions on account ACC-1001", "mode": "rules"}`
-14. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "amount": null, "skip_review": false}`
+14. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": "ACC-1001", "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
 15. **ConciergeAgent → AccountAgent** `get_transactions`: `{"session_token": "sess_31081e644773", "account_id": "ACC-1001", "account_type": null}`
 16. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 17. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C002"}`
