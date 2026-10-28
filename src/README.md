@@ -29,6 +29,7 @@ This runs the six scripted scenarios in `bankassist/scenarios.py` and writes:
 
 - `../traces/phase1/<scenario>.json` and `.md`: full agent traces
 - `../traces/README.md`: overview of each scenario and the policies involved
+- `../traces/viewer.html`: swim-lane viewer of all traces (open in any browser, no server needed)
 - `../BankAssist/episodes/example1.md` … `example6.md`: episode write-ups
 
 Example output:
@@ -123,6 +124,7 @@ src/
     ├── llm.py              optional OpenAI-compatible LLM client (stdlib only)
     ├── scenarios.py        the six scripted scenarios
     ├── run_scenarios.py    runs the scenarios, writes traces and episodes
+    ├── viewer.py           builds traces/viewer.html
     └── cli.py              interactive chat
 ```
 

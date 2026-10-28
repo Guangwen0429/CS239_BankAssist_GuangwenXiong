@@ -15,6 +15,8 @@ Each scenario has two files: `<scenario>.json` (complete machine-readable trace)
 - **message**: an inter-agent message (request or reply) on the message bus
 - **response**: the final text shown to the customer
 
+For a visual walk-through, download and open [`viewer.html`](viewer.html) in a browser: it shows every trace as a swim-lane timeline (one column per agent) that can be stepped through event by event.
+
 PINs are masked as `****` in every trace (policy P2). The JSON `meta.audit_log` holds the bank's audit log at the end of the run (policy P13).
 
 Phase 1 is the prototype **without** a safety-enforcing framework. Scenarios 1–4 show correct behaviour; scenarios 5 and 6 show policy violations that the Phase 1 prototype does not prevent. These will be blocked in Phase 2.

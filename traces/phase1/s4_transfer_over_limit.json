@@ -2,7 +2,7 @@
   "scenario_id": "s4_transfer_over_limit",
   "title": "Transfer above the single-transfer limit is denied",
   "description": "Carol tries to send $6,000, which is above the $5,000 single-transfer limit.",
-  "started_at": "2026-10-28T07:24:25.228+00:00",
+  "started_at": "2026-10-28T07:25:22.840+00:00",
   "meta": {
     "concierge_mode": "rules",
     "policies": "P8, P10, P14",
@@ -35,7 +35,7 @@
   "events": [
     {
       "step": 1,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -43,14 +43,14 @@
     },
     {
       "step": 2,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 3,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -62,14 +62,14 @@
     },
     {
       "step": 4,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C003."
     },
     {
       "step": 5,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -80,7 +80,7 @@
     },
     {
       "step": 6,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -90,7 +90,7 @@
     },
     {
       "step": 7,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -100,7 +100,7 @@
     },
     {
       "step": 8,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -112,7 +112,7 @@
     },
     {
       "step": 9,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -126,7 +126,7 @@
     },
     {
       "step": 10,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -137,14 +137,14 @@
     },
     {
       "step": 11,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "PIN correct; session issued."
     },
     {
       "step": 12,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -157,7 +157,7 @@
     },
     {
       "step": 13,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -168,7 +168,7 @@
     },
     {
       "step": 14,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -185,7 +185,7 @@
     },
     {
       "step": 15,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -196,7 +196,7 @@
     },
     {
       "step": 16,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -206,7 +206,7 @@
     },
     {
       "step": 17,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -217,7 +217,7 @@
     },
     {
       "step": 18,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -227,7 +227,7 @@
     },
     {
       "step": 19,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -243,7 +243,7 @@
     },
     {
       "step": 20,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -261,14 +261,14 @@
     },
     {
       "step": 21,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "Asking RiskAgent to review transfer of $6,000.00 ACC-3001 -> ACC-1001."
     },
     {
       "step": 22,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "RiskAgent",
@@ -282,7 +282,7 @@
     },
     {
       "step": 23,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "check_payee",
@@ -293,7 +293,7 @@
     },
     {
       "step": 24,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "check_payee",
@@ -305,7 +305,7 @@
     },
     {
       "step": 25,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "daily_transfer_total",
@@ -315,7 +315,7 @@
     },
     {
       "step": 26,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "daily_transfer_total",
@@ -326,14 +326,14 @@
     },
     {
       "step": 27,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "thought",
       "agent": "RiskAgent",
       "content": "Hard limit hit: amount exceeds single-transfer limit $5,000. Denying."
     },
     {
       "step": 28,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "record_audit",
@@ -352,7 +352,7 @@
     },
     {
       "step": 29,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "record_audit",
@@ -363,7 +363,7 @@
     },
     {
       "step": 30,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "message",
       "agent": "RiskAgent",
       "to": "ConciergeAgent",
@@ -377,7 +377,7 @@
     },
     {
       "step": 31,
-      "time": "2026-10-28T07:24:25.229+00:00",
+      "time": "2026-10-28T07:25:22.840+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",

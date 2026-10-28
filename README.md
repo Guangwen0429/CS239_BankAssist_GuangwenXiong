@@ -41,6 +41,7 @@ Full setup, demo accounts and LLM configuration: [`src/README.md`](src/README.md
 | Phase 1 source code | [`src/`](src/) |
 | Agent traces (6 scenarios, JSON + Markdown) | [`traces/phase1/`](traces/phase1/) |
 | Scenario guide: what each trace shows and which policy is involved | [`traces/README.md`](traces/README.md) |
+| Visual trace viewer (open locally in a browser) | [`traces/viewer.html`](traces/viewer.html) |
 | Tests | [`tests/`](tests/) |
 
 The six traces:

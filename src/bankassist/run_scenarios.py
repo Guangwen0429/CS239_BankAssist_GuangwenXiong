@@ -6,6 +6,7 @@ Writes (paths relative to the repository root):
     traces/phase1/<scenario>.json    full machine-readable trace
     traces/phase1/<scenario>.md      the same trace as a Markdown table
     traces/README.md                 overview of every scenario and policy
+    traces/viewer.html               swim-lane viewer of all traces (open in a browser)
     BankAssist/episodes/exampleN.md  episode write-ups (submission format)
 """
 
@@ -18,6 +19,7 @@ from pathlib import Path
 from .app import BankAssistApp
 from .scenarios import SCENARIOS
 from .trace import Tracer
+from .viewer import build_viewer
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -110,6 +112,9 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         "- **message**: an inter-agent message (request or reply) on the message bus",
         "- **response**: the final text shown to the customer",
         "",
+        "For a visual walk-through, download and open [`viewer.html`](viewer.html) in a browser: it shows "
+        "every trace as a swim-lane timeline (one column per agent) that can be stepped through event by event.",
+        "",
         "PINs are masked as `****` in every trace (policy P2). The JSON `meta.audit_log` holds the "
         "bank's audit log at the end of the run (policy P13).",
         "",
@@ -168,6 +173,8 @@ def main(argv: list[str] | None = None) -> None:
             print(f"     {t['customer_id']}: {t['user']}")
             print(f"     BankAssist: {t['assistant']}")
     (root / "traces" / "README.md").write_text(traces_readme(results), encoding="utf-8")
+    (root / "traces" / "viewer.html").write_text(build_viewer([tr.to_dict() for _, tr, _ in results]),
+                                                 encoding="utf-8")
     print(f"\nWrote {len(results)} traces to {trace_dir} and episodes to {ep_dir}")
 
 
