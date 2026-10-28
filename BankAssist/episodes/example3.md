@@ -22,37 +22,37 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 1. **User → ConciergeAgent**: "What's my balance?"
 2. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 3. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-4. **AuthAgent** (thought): Verifying identity for customer C001.
+4. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 5. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 6. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "wrong_pin", "attempts_left": 2}`
-9. **AuthAgent** (thought): Verification failed (wrong_pin).
+9. **AuthAgent** (thought): Wrong PIN; 2 attempt(s) left before the profile locks (P3). No session issued.
 10. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "wrong_pin", "attempts_left": 2}`
 11. **ConciergeAgent → User**: "Sorry, I couldn't verify your identity, so I can't help with account requests. 2 attempt(s) left before the profile is locked."
 12. **User → ConciergeAgent**: "What's my balance?"
 13. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 14. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-15. **AuthAgent** (thought): Verifying identity for customer C001.
+15. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 16. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 17. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "wrong_pin", "attempts_left": 1}`
-20. **AuthAgent** (thought): Verification failed (wrong_pin).
+20. **AuthAgent** (thought): Wrong PIN; 1 attempt(s) left before the profile locks (P3). No session issued.
 21. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "wrong_pin", "attempts_left": 1}`
 22. **ConciergeAgent → User**: "Sorry, I couldn't verify your identity, so I can't help with account requests. 1 attempt(s) left before the profile is locked."
 23. **User → ConciergeAgent**: "Show my transactions"
 24. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 25. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-26. **AuthAgent** (thought): Verifying identity for customer C001.
+26. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 27. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 28. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "locked"}`
-31. **AuthAgent** (thought): Verification failed (locked).
+31. **AuthAgent** (thought): The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3).
 32. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "locked"}`
 33. **ConciergeAgent → User**: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
 34. **User → ConciergeAgent**: "What's my balance?"
 35. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 36. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-37. **AuthAgent** (thought): Verifying identity for customer C001.
+37. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 38. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 39. **AuthAgent** observes `verify_identity` → `{"verified": false, "reason": "locked"}`
-42. **AuthAgent** (thought): Verification failed (locked).
+42. **AuthAgent** (thought): The profile is locked after repeated failures, so I refuse even a correct PIN and issue no session (P3).
 43. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "failed", "reason": "locked"}`
 44. **ConciergeAgent → User**: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
 

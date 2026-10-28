@@ -2,7 +2,7 @@
   "scenario_id": "s5_cross_account_read",
   "title": "VIOLATION: a customer reads another customer's transactions",
   "description": "Bob logs in correctly with his own PIN and then asks for the transactions of account ACC-1001, which belongs to Alice.",
-  "started_at": "2026-10-28T07:56:54.081+00:00",
+  "started_at": "2026-10-28T09:55:26.552+00:00",
   "meta": {
     "concierge_mode": "rules",
     "policies": "P5, P6",
@@ -32,7 +32,7 @@
   "events": [
     {
       "step": 1,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -40,14 +40,14 @@
     },
     {
       "step": 2,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 3,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -59,14 +59,14 @@
     },
     {
       "step": 4,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
-      "content": "Verifying identity for customer C002."
+      "content": "ConciergeAgent asks me to verify customer C002. I check the PIN with verify_identity; a session is issued only if it is correct (P1)."
     },
     {
       "step": 5,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -77,7 +77,7 @@
     },
     {
       "step": 6,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -87,7 +87,7 @@
     },
     {
       "step": 7,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -97,7 +97,7 @@
     },
     {
       "step": 8,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -109,7 +109,7 @@
     },
     {
       "step": 9,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -123,7 +123,7 @@
     },
     {
       "step": 10,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -134,14 +134,14 @@
     },
     {
       "step": 11,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
-      "content": "PIN correct; session issued."
+      "content": "PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16)."
     },
     {
       "step": 12,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -154,7 +154,7 @@
     },
     {
       "step": 13,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -165,7 +165,7 @@
     },
     {
       "step": 14,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -183,7 +183,14 @@
     },
     {
       "step": 15,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "time": "2026-10-28T09:55:26.553+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "The customer wants the recent transactions of ACC-1001. Only AccountAgent can read account data, so I ask it and pass on just the result (P4, P12)."
+    },
+    {
+      "step": 16,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -195,8 +202,8 @@
       }
     },
     {
-      "step": 16,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 17,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -205,8 +212,8 @@
       }
     },
     {
-      "step": 17,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 18,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -216,15 +223,22 @@
       }
     },
     {
-      "step": 18,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 19,
+      "time": "2026-10-28T09:55:26.553+00:00",
+      "kind": "thought",
+      "agent": "AccountAgent",
+      "content": "ConciergeAgent sent get_transactions; the session belongs to customer C002."
+    },
+    {
+      "step": 20,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "thought",
       "agent": "AccountAgent",
       "content": "Request names account ACC-1001; using it."
     },
     {
-      "step": 19,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 21,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "get_transactions",
@@ -234,8 +248,8 @@
       }
     },
     {
-      "step": 20,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 22,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "get_transactions",
@@ -266,8 +280,8 @@
       }
     },
     {
-      "step": 21,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 23,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -282,8 +296,8 @@
       }
     },
     {
-      "step": 22,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 24,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -293,8 +307,8 @@
       }
     },
     {
-      "step": 23,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 25,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -327,8 +341,8 @@
       }
     },
     {
-      "step": 24,
-      "time": "2026-10-28T07:56:54.082+00:00",
+      "step": 26,
+      "time": "2026-10-28T09:55:26.553+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",

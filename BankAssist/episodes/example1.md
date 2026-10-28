@@ -18,65 +18,73 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 1. **User → ConciergeAgent**: "What's my checking balance?"
 2. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 3. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-4. **AuthAgent** (thought): Verifying identity for customer C001.
+4. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 5. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 6. **AuthAgent** observes `verify_identity` → `{"verified": true}`
 7. **AuthAgent** calls `issue_session` with `{"customer_id": "C001"}`
 8. **AuthAgent** observes `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}`
-11. **AuthAgent** (thought): PIN correct; session issued.
+11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16).
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "What's my checking balance?", "mode": "rules"}`
 14. **ConciergeAgent** observes `parse_request` → `{"intent": "check_balance", "account_id": null, "account_type": "checking", "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
-15. **ConciergeAgent → AccountAgent** `get_balance`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": "checking"}`
-16. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
-17. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
-18. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
-19. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
-20. **AccountAgent** (thought): No account named; using customer C001's checking account ACC-1001.
-21. **AccountAgent** calls `get_balance` with `{"account_id": "ACC-1001"}`
-22. **AccountAgent** observes `get_balance` → `{"account_id": "ACC-1001", "type": "checking", "balance": 2450.0}`
-25. **AccountAgent → ConciergeAgent** `reply:get_balance`: `{"status": "ok", "account_id": "ACC-1001", "type": "checking", "balance": 2450.0}`
-26. **ConciergeAgent → User**: "The balance of checking account ACC-1001 is $2,450.00."
-27. **User → ConciergeAgent**: "Send $200 to ACC-2001"
-28. **ConciergeAgent** calls `parse_request` with `{"text": "Send $200 to ACC-2001", "mode": "rules"}`
-29. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "to_type": null, "amount": 200.0, "skip_review": false}`
-30. **ConciergeAgent → AccountAgent** `list_my_accounts`: `{"session_token": "sess_31081e644773"}`
-31. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
-32. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
-33. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
-34. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
-35. **AccountAgent → ConciergeAgent** `reply:list_my_accounts`: `{"status": "ok", "customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
-36. **ConciergeAgent** (thought): Asking RiskAgent to review transfer of $200.00 ACC-1001 -> ACC-2001.
-37. **ConciergeAgent → RiskAgent** `assess_transfer`: `{"customer_id": "C001", "from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0}`
-38. **RiskAgent** calls `check_payee` with `{"customer_id": "C001", "to_account": "ACC-2001"}`
-39. **RiskAgent** observes `check_payee` → `{"to_account": "ACC-2001", "known_payee": true, "external": false}`
-40. **RiskAgent** calls `daily_transfer_total` with `{"from_account": "ACC-1001"}`
-41. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-1001", "total_last_24h": 0}`
-42. **RiskAgent** (thought): Low risk: known payee, small amount, within limits. Approving.
-43. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0}`
-44. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
-45. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "approve", "approval_id": "APR-0001"}`
-46. **ConciergeAgent → AccountAgent** `execute_transfer`: `{"session_token": "sess_31081e644773", "from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0, "approval_id": "APR-0001"}`
-47. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
-48. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
-49. **AccountAgent** (thought): Executing transfer of $200.00 ACC-1001 -> ACC-2001 (approval_id=APR-0001).
-50. **AccountAgent** calls `transfer_funds` with `{"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0, "approval_id": "APR-0001"}`
-51. **AccountAgent** observes `transfer_funds` → `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 2250.0}`
-54. **AccountAgent → ConciergeAgent** `reply:execute_transfer`: `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 2250.0}`
-55. **ConciergeAgent → User**: "Done. Sent $200.00 from ACC-1001 to ACC-2001 (transfer TRF-0001). New balance: $2,250.00."
-56. **User → ConciergeAgent**: "Show my recent transactions"
-57. **ConciergeAgent** calls `parse_request` with `{"text": "Show my recent transactions", "mode": "rules"}`
-58. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
-59. **ConciergeAgent → AccountAgent** `get_transactions`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": null}`
-60. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
-61. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
-62. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
-63. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
-64. **AccountAgent** (thought): No account named; using customer C001's checking account ACC-1001.
-65. **AccountAgent** calls `get_transactions` with `{"account_id": "ACC-1001", "limit": 5}`
-66. **AccountAgent** observes `get_transactions` → `{"account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}`
-69. **AccountAgent → ConciergeAgent** `reply:get_transactions`: `{"status": "ok", "account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}`
-70. **ConciergeAgent → User**: "Recent transactions on ACC-1001: 2026-10-20 Payroll deposit $3,200.00; 2026-10-22 Rent - Westwood Apts -$1,850.00; 2026-10-24 Trader Joe's -$64.18; 2026-10-25 Pharmacy - prescription -$42.50; 2026-10-28 Transfer to ACC-2001 -$200.00."
+15. **ConciergeAgent** (thought): The customer wants the balance of their checking account. Only AccountAgent can read account data, so I ask it and pass on just the result (P4, P12).
+16. **ConciergeAgent → AccountAgent** `get_balance`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": "checking"}`
+17. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
+18. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
+19. **AccountAgent** (thought): ConciergeAgent sent get_balance; the session belongs to customer C001.
+20. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
+21. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
+22. **AccountAgent** (thought): No account named; using customer C001's checking account ACC-1001.
+23. **AccountAgent** calls `get_balance` with `{"account_id": "ACC-1001"}`
+24. **AccountAgent** observes `get_balance` → `{"account_id": "ACC-1001", "type": "checking", "balance": 2450.0}`
+27. **AccountAgent → ConciergeAgent** `reply:get_balance`: `{"status": "ok", "account_id": "ACC-1001", "type": "checking", "balance": 2450.0}`
+28. **ConciergeAgent → User**: "The balance of checking account ACC-1001 is $2,450.00."
+29. **User → ConciergeAgent**: "Send $200 to ACC-2001"
+30. **ConciergeAgent** calls `parse_request` with `{"text": "Send $200 to ACC-2001", "mode": "rules"}`
+31. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": "ACC-2001", "to_type": null, "amount": 200.0, "skip_review": false}`
+32. **ConciergeAgent** (thought): The customer wants to send $200.00 from their default account to ACC-2001. Plan: resolve the accounts, have RiskAgent review it, and execute only with RiskAgent's approval (P8).
+33. **ConciergeAgent → AccountAgent** `list_my_accounts`: `{"session_token": "sess_31081e644773"}`
+34. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
+35. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
+36. **AccountAgent** (thought): ConciergeAgent sent list_my_accounts; the session belongs to customer C001.
+37. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
+38. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
+39. **AccountAgent → ConciergeAgent** `reply:list_my_accounts`: `{"status": "ok", "customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
+40. **ConciergeAgent** (thought): Asking RiskAgent to review transfer of $200.00 ACC-1001 -> ACC-2001. RiskAgent gets only the customer ID, the two accounts and the amount (P11).
+41. **ConciergeAgent → RiskAgent** `assess_transfer`: `{"customer_id": "C001", "from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0}`
+42. **RiskAgent** calls `check_payee` with `{"customer_id": "C001", "to_account": "ACC-2001"}`
+43. **RiskAgent** observes `check_payee` → `{"to_account": "ACC-2001", "known_payee": true, "external": false}`
+44. **RiskAgent** calls `daily_transfer_total` with `{"from_account": "ACC-1001"}`
+45. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-1001", "total_last_24h": 0}`
+46. **RiskAgent** (thought): Reviewing $200.00 ACC-1001 -> ACC-2001 for C001. Single-transfer limit: ok ($200.00 vs $5,000). 24h total: ok ($0.00 already sent). Size: small. Payee: saved or own account.
+47. **RiskAgent** (thought): Low risk: saved payee or own account, small amount, within limits. Issuing a single-use approval valid for 10 minutes (P8).
+48. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0}`
+49. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
+50. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "approve", "approval_id": "APR-0001"}`
+51. **ConciergeAgent → AccountAgent** `execute_transfer`: `{"session_token": "sess_31081e644773", "from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0, "approval_id": "APR-0001"}`
+52. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
+53. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
+54. **AccountAgent** (thought): ConciergeAgent sent execute_transfer; the session belongs to customer C001.
+55. **AccountAgent** (thought): Executing transfer of $200.00 ACC-1001 -> ACC-2001 (approval_id=APR-0001). transfer_funds will refuse an overdraft (P10).
+56. **AccountAgent** calls `transfer_funds` with `{"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 200.0, "approval_id": "APR-0001"}`
+57. **AccountAgent** observes `transfer_funds` → `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 2250.0}`
+60. **AccountAgent → ConciergeAgent** `reply:execute_transfer`: `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 2250.0}`
+61. **ConciergeAgent → User**: "Done. Sent $200.00 from ACC-1001 to ACC-2001 (transfer TRF-0001). New balance: $2,250.00."
+62. **User → ConciergeAgent**: "Show my recent transactions"
+63. **ConciergeAgent** calls `parse_request` with `{"text": "Show my recent transactions", "mode": "rules"}`
+64. **ConciergeAgent** observes `parse_request` → `{"intent": "view_transactions", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
+65. **ConciergeAgent** (thought): The customer wants the recent transactions of their checking account. Only AccountAgent can read account data, so I ask it and pass on just the result (P4, P12).
+66. **ConciergeAgent → AccountAgent** `get_transactions`: `{"session_token": "sess_31081e644773", "account_id": null, "account_type": null}`
+67. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
+68. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
+69. **AccountAgent** (thought): ConciergeAgent sent get_transactions; the session belongs to customer C001.
+70. **AccountAgent** calls `list_accounts` with `{"customer_id": "C001"}`
+71. **AccountAgent** observes `list_accounts` → `{"customer_id": "C001", "accounts": [{"account_id": "ACC-1001", "type": "checking"}, {"account_id": "ACC-1002", "type": "savings"}]}`
+72. **AccountAgent** (thought): No account named; using customer C001's checking account ACC-1001.
+73. **AccountAgent** calls `get_transactions` with `{"account_id": "ACC-1001", "limit": 5}`
+74. **AccountAgent** observes `get_transactions` → `{"account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}`
+77. **AccountAgent → ConciergeAgent** `reply:get_transactions`: `{"status": "ok", "account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}`
+78. **ConciergeAgent → User**: "Recent transactions on ACC-1001: 2026-10-20 Payroll deposit $3,200.00; 2026-10-22 Rent - Westwood Apts -$1,850.00; 2026-10-24 Trader Joe's -$64.18; 2026-10-25 Pharmacy - prescription -$42.50; 2026-10-28 Transfer to ACC-2001 -$200.00."
 
 ## Policy Connection
 

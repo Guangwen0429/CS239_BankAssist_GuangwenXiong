@@ -16,33 +16,36 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 1. **User → ConciergeAgent**: "Send $500 from ACC-2001 to ACC-1001"
 2. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 3. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
-4. **AuthAgent** (thought): Verifying identity for customer C001.
+4. **AuthAgent** (thought): ConciergeAgent asks me to verify customer C001. I check the PIN with verify_identity; a session is issued only if it is correct (P1).
 5. **AuthAgent** calls `verify_identity` with `{"customer_id": "C001", "pin": "****"}`
 6. **AuthAgent** observes `verify_identity` → `{"verified": true}`
 7. **AuthAgent** calls `issue_session` with `{"customer_id": "C001"}`
 8. **AuthAgent** observes `issue_session` → `{"session_token": "sess_31081e644773", "customer_id": "C001", "expires_in_s": 900}`
-11. **AuthAgent** (thought): PIN correct; session issued.
+11. **AuthAgent** (thought): PIN correct. Session issued (valid 15 minutes); I reply with the token only, never the PIN (P16).
 12. **AuthAgent → ConciergeAgent** `reply:authenticate`: `{"status": "verified", "session_token": "sess_31081e644773", "customer_id": "C001"}`
 13. **ConciergeAgent** calls `parse_request` with `{"text": "Send $500 from ACC-2001 to ACC-1001", "mode": "rules"}`
 14. **ConciergeAgent** observes `parse_request` → `{"intent": "transfer", "account_id": null, "account_type": null, "from_account": "ACC-2001", "from_type": null, "to_account": "ACC-1001", "to_type": null, "amount": 500.0, "skip_review": false}`
-15. **ConciergeAgent** (thought): Asking RiskAgent to review transfer of $500.00 ACC-2001 -> ACC-1001.
-16. **ConciergeAgent → RiskAgent** `assess_transfer`: `{"customer_id": "C001", "from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0}`
-17. **RiskAgent** calls `check_payee` with `{"customer_id": "C001", "to_account": "ACC-1001"}`
-18. **RiskAgent** observes `check_payee` → `{"to_account": "ACC-1001", "known_payee": true, "external": false}`
-19. **RiskAgent** calls `daily_transfer_total` with `{"from_account": "ACC-2001"}`
-20. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-2001", "total_last_24h": 0}`
-21. **RiskAgent** (thought): Low risk: known payee, small amount, within limits. Approving.
-22. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0}`
-23. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
-24. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "approve", "approval_id": "APR-0001"}`
-25. **ConciergeAgent → AccountAgent** `execute_transfer`: `{"session_token": "sess_31081e644773", "from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0, "approval_id": "APR-0001"}`
-26. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
-27. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
-28. **AccountAgent** (thought): Executing transfer of $500.00 ACC-2001 -> ACC-1001 (approval_id=APR-0001).
-29. **AccountAgent** calls `transfer_funds` with `{"from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0, "approval_id": "APR-0001"}`
-30. **AccountAgent** observes `transfer_funds` → `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 330.5}`
-33. **AccountAgent → ConciergeAgent** `reply:execute_transfer`: `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 330.5}`
-34. **ConciergeAgent → User**: "Done. Sent $500.00 from ACC-2001 to ACC-1001 (transfer TRF-0001). New balance: $330.50."
+15. **ConciergeAgent** (thought): The customer wants to send $500.00 from ACC-2001 to ACC-1001. Plan: resolve the accounts, have RiskAgent review it, and execute only with RiskAgent's approval (P8).
+16. **ConciergeAgent** (thought): Asking RiskAgent to review transfer of $500.00 ACC-2001 -> ACC-1001. RiskAgent gets only the customer ID, the two accounts and the amount (P11).
+17. **ConciergeAgent → RiskAgent** `assess_transfer`: `{"customer_id": "C001", "from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0}`
+18. **RiskAgent** calls `check_payee` with `{"customer_id": "C001", "to_account": "ACC-1001"}`
+19. **RiskAgent** observes `check_payee` → `{"to_account": "ACC-1001", "known_payee": true, "external": false}`
+20. **RiskAgent** calls `daily_transfer_total` with `{"from_account": "ACC-2001"}`
+21. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-2001", "total_last_24h": 0}`
+22. **RiskAgent** (thought): Reviewing $500.00 ACC-2001 -> ACC-1001 for C001. Single-transfer limit: ok ($500.00 vs $5,000). 24h total: ok ($0.00 already sent). Size: small. Payee: saved or own account.
+23. **RiskAgent** (thought): Low risk: saved payee or own account, small amount, within limits. Issuing a single-use approval valid for 10 minutes (P8).
+24. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0}`
+25. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
+26. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "approve", "approval_id": "APR-0001"}`
+27. **ConciergeAgent → AccountAgent** `execute_transfer`: `{"session_token": "sess_31081e644773", "from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0, "approval_id": "APR-0001"}`
+28. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
+29. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`
+30. **AccountAgent** (thought): ConciergeAgent sent execute_transfer; the session belongs to customer C001.
+31. **AccountAgent** (thought): Executing transfer of $500.00 ACC-2001 -> ACC-1001 (approval_id=APR-0001). transfer_funds will refuse an overdraft (P10).
+32. **AccountAgent** calls `transfer_funds` with `{"from_account": "ACC-2001", "to_account": "ACC-1001", "amount": 500.0, "approval_id": "APR-0001"}`
+33. **AccountAgent** observes `transfer_funds` → `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 330.5}`
+36. **AccountAgent → ConciergeAgent** `reply:execute_transfer`: `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 330.5}`
+37. **ConciergeAgent → User**: "Done. Sent $500.00 from ACC-2001 to ACC-1001 (transfer TRF-0001). New balance: $330.50."
 
 ## Policy Connection
 
