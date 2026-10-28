@@ -41,7 +41,7 @@ def build() -> list[Path]:
 
     whole = OUT / f"{NAME}-{APP}-{UID}-whole.tar.gz"
     with tarfile.open(whole, "w:gz") as tar:
-        for item in (APP, "src", "tests", "traces", "README.md", "requirements.md",
+        for item in (APP, "src", "tests", "traces", "scripts", "README.md", "requirements.md",
                      "policies.md", "LICENSE"):
             tar.add(ROOT / item, arcname=item, filter=_filter)
     return [req, whole]
