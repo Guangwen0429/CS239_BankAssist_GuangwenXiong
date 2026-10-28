@@ -39,7 +39,7 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | 28 | RiskAgent | action | `record_audit({"agent": "RiskAgent", "event": "transfer_denied", "details": {"customer_id": "C003", "from": "ACC-3001", "to": "ACC-1001", "amount": 6000.0, "reasons": ["amount exceeds single-transfer limit $5,000"]}})` |
 | 29 | RiskAgent | observation | `record_audit` → `{"logged": true, "seq": 2}` |
 | 30 | RiskAgent | message | → **ConciergeAgent** [reply:assess_transfer] `{"decision": "deny", "reasons": ["amount exceeds single-transfer limit $5,000"]}` |
-| 31 | ConciergeAgent | response | → User: "I can't make this transfer: amount exceeds single-transfer limit $5,000." |
+| 31 | ConciergeAgent | response | → User: "I can't make this transfer: amount exceeds single-transfer limit $5,000. No money was moved." |
 
 ## Audit log at end of run
 

@@ -557,7 +557,7 @@ class RiskAgentConfirmationTest(AppTestBase):
         self.app.risk.pending[ref]["created_at"] -= APPROVAL_TTL_SECONDS + 1
         reply = self.app.chat(ALICE, ALICE_PIN, "yes")
         self.assertEqual(reply, "The transfer could not be approved: the confirmation window "
-                                "(10 minutes) has passed.")
+                                "(10 minutes) has passed. No money was moved.")
         self.assertNotIn(ref, self.app.risk.pending)
         self.assertEqual(self.bank.approvals, {})
         self.assertEqual(self.execute_requests(), [])
@@ -726,6 +726,32 @@ class PinInChatTest(AppTestBase):
     def test_pin_followed_by_period_is_masked(self):
         self.app.chat(ALICE, ALICE_PIN, "what's my balance? my pin is 1234.")
         self.assertNotIn(ALICE_PIN, self.traced_input())
+
+
+# ===================================== 16. negative amounts, "don't", amounts equal to the PIN
+class ParserRound3Test(AppTestBase):
+    def test_negative_amounts_are_not_read(self):
+        for text in ("send -$5 to ACC-2001", "send -5 dollars to ACC-2001"):
+            with self.subTest(text=text):
+                self.assertIsNone(rule_parse(text)["amount"])
+                reply = self.app.chat(ALICE, ALICE_PIN, text)
+                self.assertTrue(reply.startswith("Please tell me the amount"), reply)
+        self.assertEqual(self.execute_requests(), [])
+
+    def test_dont_takes_the_request_back(self):
+        before = self.balance("ACC-1001")
+        self.assertEqual(rule_parse("send $50 to ACC-2001 please don't")["intent"], "decline")
+        self.app.chat(ALICE, ALICE_PIN, "send $50 to ACC-2001 please don't")
+        self.assertEqual(self.execute_requests(), [])
+        self.assertEqual(self.balance("ACC-1001"), before)
+
+    def test_amount_equal_to_pin_is_not_masked(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "send 1234 dollars to ACC-2001")
+        self.assertIn("$1,234.00", reply)
+
+    def test_denial_says_no_money_moved(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "Send $6,000 to ACC-2001")
+        self.assertTrue(reply.endswith("No money was moved."), reply)
 
 
 if __name__ == "__main__":

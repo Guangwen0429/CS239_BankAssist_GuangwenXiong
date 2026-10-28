@@ -75,7 +75,7 @@ C001> Send $6,000 to ACC-2001                     # denied: over $5,000 limit
 C001> logout
 ```
 
-Type `quit` to exit. The session trace is saved to `../traces/interactive/session-<time>.json`.
+Type `quit` to exit. The session trace is saved to `../traces/interactive/session-<time>-<pid>.json`.
 
 ### 3. Run the tests
 

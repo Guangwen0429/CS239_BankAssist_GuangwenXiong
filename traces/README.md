@@ -126,7 +126,7 @@ Files: [`phase1/s4_transfer_over_limit.json`](phase1/s4_transfer_over_limit.json
 **Conversation.**
 
 > **C003:** Send $6,000 to ACC-1001  
-> **BankAssist:** I can't make this transfer: amount exceeds single-transfer limit $5,000.
+> **BankAssist:** I can't make this transfer: amount exceeds single-transfer limit $5,000. No money was moved.
 
 **Policies involved.** P8, P10, P14
 

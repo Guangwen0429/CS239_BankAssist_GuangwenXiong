@@ -47,7 +47,7 @@ Every agent is covered in each category the Canvas brief asks for. Cells list po
 |---|---|---|---|---|---|
 | ConciergeAgent | P7, P15 | P4 (`parse_request` only) | P1, P8, P9 | P2, P14, P17 | P6, P12 |
 | AuthAgent | P15 (accepts only `authenticate`) | P4 | P1, P3 | P2, P13 | P16 |
-| AccountAgent | P5, P7, P15 | P4 | P1, P8 | P13, P14 | P6 |
+| AccountAgent | P5, P7, P15 | P4 | P1, P8 | P2, P13 | P6 |
 | RiskAgent | P7, P15 | P4 | P8, P9 | P13 | P11 |
 
 Limits that apply across agents: **P10**. Audit duties of every agent: **P13**.

@@ -152,7 +152,8 @@ class TransferFlowTest(FlowTestBase):
 
     def test_single_transfer_limit_denied(self):  # P10, P14
         reply = self.app.chat(CAROL, CAROL_PIN, "Send $6,000 to ACC-1001")
-        self.assertEqual(reply, "I can't make this transfer: amount exceeds single-transfer limit $5,000.")
+        self.assertEqual(reply, "I can't make this transfer: amount exceeds single-transfer limit $5,000. "
+                                "No money was moved.")
         self.assertEqual(self.execute_requests(), [])
         self.assertEqual(H.actions(self.tracer, "transfer_funds"), [])
         self.assertEqual(self.balance("ACC-3001"), 15200.00)

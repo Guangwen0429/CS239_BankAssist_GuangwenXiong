@@ -39,7 +39,7 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 26. **RiskAgent** observes `daily_transfer_total` → `{"from_account": "ACC-3001", "total_last_24h": 0}`
 27. **RiskAgent** (thought): Hard limit hit: amount exceeds single-transfer limit $5,000. Denying.
 30. **RiskAgent → ConciergeAgent** `reply:assess_transfer`: `{"decision": "deny", "reasons": ["amount exceeds single-transfer limit $5,000"]}`
-31. **ConciergeAgent → User**: "I can't make this transfer: amount exceeds single-transfer limit $5,000."
+31. **ConciergeAgent → User**: "I can't make this transfer: amount exceeds single-transfer limit $5,000. No money was moved."
 
 ## Policy Connection
 

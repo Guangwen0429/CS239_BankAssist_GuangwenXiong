@@ -153,8 +153,9 @@ class AccountAgent(Agent):
         if performative == "execute_transfer":
             frm, to, amt = payload["from_account"], payload["to_account"], float(payload["amount"])
             approval_id = payload.get("approval_id")
-            # PHASE-1 GAP (breaks P8): approval_id is passed through but never
-            # validated; a transfer with no approval at all is still executed.
+            # PHASE-1 GAP (breaks P5, P8): ownership of from_account is never checked,
+            # and approval_id is passed through but never validated; a transfer with no
+            # approval at all is still executed.
             self.think(f"Executing transfer of ${amt:,.2f} {frm} -> {to} "
                        f"(approval_id={approval_id}).")
             res = self.call_tool("transfer_funds", from_account=frm, to_account=to,
@@ -262,7 +263,7 @@ _ACCOUNT_RE = re.compile(r"\b(?:ACC|EXT)-\d{4}\b", re.IGNORECASE)
 _NUM = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?"
 # a dollar amount: "$1,500", "$20.50", "300 dollars".  The look-arounds reject things such as
 # "$1e3", "$10.555" or "$1,,5" instead of silently reading them as a different number.
-_AMOUNT_RE = re.compile(rf"\$\s*({_NUM})(?![\deE]|[.,][\d,])|(?<![\d.,$])\b({_NUM})\s*(?:dollars|usd)\b",
+_AMOUNT_RE = re.compile(rf"(?<!-)\$\s*({_NUM})(?![\deE]|[.,][\d,])|(?<![\d.,$-])\b({_NUM})\s*(?:dollars|usd)\b",
                         re.IGNORECASE)
 _INTENT_FIELDS = ("intent", "account_id", "account_type", "from_account", "from_type",
                   "to_account", "to_type", "amount", "skip_review")
@@ -312,7 +313,7 @@ def rule_parse(text: str) -> dict[str, Any]:
         out["skip_review"] = bool(re.search(
             r"\b(skip|bypass|without (the )?(security|risk|review|check|verification)\b|no (need for|review|check)\b)",
             low))
-        if re.search(r"\b(cancel|never ?mind|actually no|don'?t send)\b", low):
+        if re.search(r"\b(cancel|never ?mind|actually no|don'?t)\b", low):
             out["intent"] = "decline"  # the customer took the request back in the same message
     elif re.search(r"\b(transactions?|history|statement|activity|spent|purchases)\b", low):
         out["intent"] = "view_transactions"
@@ -414,7 +415,8 @@ class ConciergeAgent(Agent):
     def handle_user(self, customer_id: str, pin: str, text: str) -> str:
         if pin and len(pin) >= 4:
             # a PIN typed into the chat text is masked before it is traced or parsed (P2)
-            text = re.sub(rf"(?<!\d)(?<!\$)(?<!\d[.,]){re.escape(pin)}(?!\d|[.,]\d)", "****", text)
+            text = re.sub(rf"(?<!\d)(?<!\$)(?<!\d[.,]){re.escape(pin)}(?!\d|[.,]\d|\s*(?:dollars|usd)\b)",
+                          "****", text, flags=re.IGNORECASE)
         self.tracer.user_input(text, to=self.name)
         self._creds = (customer_id, pin)
         try:
@@ -535,7 +537,7 @@ class ConciergeAgent(Agent):
                    f"{frm} -> {details['to_account']}.")
         risk = self.send("RiskAgent", "assess_transfer", {"customer_id": self.customer_id, **details})
         if risk["decision"] == "deny":
-            return "I can't make this transfer: " + "; ".join(risk["reasons"]) + "."
+            return "I can't make this transfer: " + "; ".join(risk["reasons"]) + ". No money was moved."
         if risk["decision"] == "confirmation_required":
             self.pending_ref = risk["ref"]
             return (f"Please confirm: send {_money(details['amount'])} from {frm} to {details['to_account']}? "
@@ -551,7 +553,8 @@ class ConciergeAgent(Agent):
         if risk["decision"] == "cancelled":
             return "OK, the transfer was cancelled. No money was moved."
         if risk["decision"] != "approve":
-            return "The transfer could not be approved: " + "; ".join(risk.get("reasons", [])) + "."
+            return ("The transfer could not be approved: " + "; ".join(risk.get("reasons", []))
+                    + ". No money was moved.")
         details = {k: risk[k] for k in ("from_account", "to_account", "amount")}
         return self._execute(details, approval_id=risk["approval_id"])
 

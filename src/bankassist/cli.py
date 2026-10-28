@@ -44,8 +44,13 @@ def main(argv: list[str] | None = None) -> None:
             if text.lower() in ("quit", "exit"):
                 break
             if text.lower() == "logout":
+                if app.concierge.pending_ref:
+                    print("BankAssist: Your transfer that was waiting for confirmation has been "
+                          "cancelled; no money was moved.\n")
                 app.new_conversation()
                 customer = input("Customer ID: ").strip().upper()
+                if customer.lower() in ("quit", "exit"):
+                    break
                 pin = getpass.getpass("PIN: ").strip()
                 continue
             reply = app.chat(customer, pin, text)

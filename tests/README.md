@@ -13,9 +13,9 @@ python3 -m unittest discover -s tests -v      # standard library only
 python3 -m pytest tests -q                    # also works if pytest is installed
 ```
 
-Expected result: 247 tests, all passing, with **14 expected failures** (shown as `x`
-by both runners). 14 of them describe policies that Phase 1 does not enforce
-yet, and 2 pin down a known bug in the PIN masking; see
+Expected result: 251 tests, all passing, with **14 expected failures** (shown as `x`
+by both runners). All 14 describe policies that Phase 1 does not enforce yet;
+see
 [Expected failures](#expected-failures) below.
 
 Notes:
@@ -333,6 +333,10 @@ Second review round:
 | `PinInChatTest.test_only_the_session_pin_is_masked` | Another customer's PIN in the text is not touched (only the PIN being used is known). | P2 |
 | `PinInChatTest.test_pin_followed_by_comma_is_masked` | "my pin is 1234, what's my balance" must be traced without `1234`. | P2 |
 | `PinInChatTest.test_pin_followed_by_period_is_masked` | "… my pin is 1234." must be traced without `1234`. | P2 |
+| `ParserRound3Test.test_negative_amounts_are_not_read` | "-$5" and "-5 dollars" are not read as amounts; the customer is asked again and nothing moves. | P14 |
+| `ParserRound3Test.test_dont_takes_the_request_back` | "send $50 to ACC-2001 please don't" is a decline; no `execute_transfer`, balance unchanged. | P14 |
+| `ParserRound3Test.test_amount_equal_to_pin_is_not_masked` | "send 1234 dollars …" while logged in with PIN 1234 still reads the amount $1,234.00. | P2 |
+| `ParserRound3Test.test_denial_says_no_money_moved` | A denied transfer's reply ends with "No money was moved." | P14 |
 
 ### `test_traces.py`
 
