@@ -22,6 +22,7 @@ class BankAssistApp:
 
     def new_conversation(self) -> None:
         """Forget the logged-in customer (as if a new chat window was opened)."""
+        self.concierge.cancel_pending()
         self.concierge.session_token = None
         self.concierge.customer_id = None
         self.concierge.pending_ref = None

@@ -64,7 +64,8 @@ SESSION_TTL_SECONDS = 900
 class Bank:
     """In-memory bank.  Each public method is one tool."""
 
-    def __init__(self, seed: dict[str, Any] | None = None, rng_seed: int | None = 239):
+    def __init__(self, seed: dict[str, Any] | None = None, rng_seed: int | None = 239,
+                 today: str | None = None):
         data = copy.deepcopy(seed or SEED_DATA)
         self.customers: dict[str, dict] = data["customers"]
         self.accounts: dict[str, dict] = data["accounts"]
@@ -76,6 +77,8 @@ class Bank:
         self._counters: dict[str, int] = {}
         # seeded so that scripted runs produce identical session tokens
         self._rng = random.Random(rng_seed)
+        # date stamped on new transactions; fixed for scripted runs so traces are reproducible
+        self.today = today
 
     def _next_id(self, prefix: str) -> str:
         self._counters[prefix] = self._counters.get(prefix, 0) + 1
@@ -143,7 +146,7 @@ class Bank:
                 appr["used"] = True
         src["balance"] -= amount
         dst["balance"] += amount
-        today = time.strftime("%Y-%m-%d")
+        today = self.today or time.strftime("%Y-%m-%d")
         self.transactions.setdefault(from_account, []).append(
             {"date": today, "desc": f"Transfer to {to_account}", "amount": -amount})
         self.transactions.setdefault(to_account, []).append(

@@ -29,17 +29,28 @@ Functional requirements:
 The complete, numbered policies, with conditions and exceptions, are in [`policies.md`](policies.md) (identical to `BankAssist/policy.md`). In short, BankAssist must never:
 
 1. Give account data or move money for someone who has not been verified by the AuthAgent in the current conversation (**P1**), or for a locked profile (**P3**).
-2. Send a PIN anywhere except from the ConciergeAgent to the AuthAgent, or store/show it in replies, logs or traces (**P2**).
-3. Let an agent call a tool that belongs to another agent (**P4**), or let anyone but the AccountAgent move money (**P7**).
+2. Send a PIN anywhere except from the ConciergeAgent to the AuthAgent, or store/show it in replies, logs or traces (**P2**, **P16**).
+3. Let an agent call a tool that belongs to another agent (**P4**), let anyone but the ConciergeAgent send requests to other agents (**P15**), or let anyone but the AccountAgent move money (**P7**).
 4. Read or debit an account that the logged-in customer does not own, or show one customer's data to another customer (**P5**, **P6**).
 5. Execute a transfer without a valid, unused RiskAgent approval for exactly that transfer, even if the customer asks to skip the review (**P8**).
-6. Approve a large, new-payee or external transfer without the customer's explicit YES (**P9**).
+6. Approve a large, new-payee or external transfer without the same customer's explicit confirmation within 10 minutes (**P9**).
 7. Exceed the per-transfer or daily limits, or overdraw an account (**P10**).
-8. Give the RiskAgent more than the minimum transfer data, or show internal tokens and logs to the customer (**P11**, **P12**).
+8. Give the RiskAgent more than the minimum transfer data, show internal tokens, codes or logs to the customer, or send the LLM anything beyond the current (PIN-masked) message (**P11**, **P12**, **P17**).
 9. Skip the audit log for logins, reads, denials and transfers, or alter it (**P13**).
-10. Tell the customer money was sent when it was not (**P14**).
+10. Tell the customer money was sent when it was not, or cancel something without saying so (**P14**).
 
-Policies are written by category: **permission** (P5, P7), **capability** (P4), **lifecycle / ordering / prerequisites** (P1, P3, P8, P9), **information flow** (P2, P13, P14) and **information isolation boundaries** (P6, P11, P12), plus **limits** (P10). Each policy names the agents it applies to.
+### Policies by agent and category
+
+Every agent is covered in each category the Canvas brief asks for. Cells list policy IDs.
+
+| Agent | Permission | Capability | Lifecycle (ordering / prerequisites) | Information flow | Information isolation |
+|---|---|---|---|---|---|
+| ConciergeAgent | P7, P15 | P4 (`parse_request` only) | P1, P8, P9 | P2, P14, P17 | P6, P12 |
+| AuthAgent | P15 (accepts only `authenticate`) | P4 | P1, P3 | P2, P13 | P16 |
+| AccountAgent | P5, P7, P15 | P4 | P1, P8 | P13, P14 | P6 |
+| RiskAgent | P7, P15 | P4 | P8, P9 | P13 | P11 |
+
+Limits that apply across agents: **P10**. Audit duties of every agent: **P13**.
 
 ## Phase 1 enforcement status
 
@@ -47,20 +58,23 @@ Phase 1 is a working prototype **without** a safety-enforcing framework. The tab
 
 | Policy | Phase 1 | Notes |
 |---|---|---|
-| P1 authentication first | ✅ by construction | Concierge always authenticates first; AccountAgent rejects invalid sessions. |
-| P2 PIN flow | ✅ by construction | PIN only in the `authenticate` message; traces mask it. |
+| P1 authentication first | ✅ by construction | Concierge always authenticates first; AccountAgent rejects invalid sessions; the CLI asks for a new PIN after a failed login. |
+| P2 PIN flow | ✅ by construction | PIN only in the `authenticate` message; traces mask it; a PIN typed into chat is masked. |
 | P3 lockout | ✅ in `verify_identity` | Episode 3. |
 | P4 tool ownership | ✅ by construction | Each agent class only calls its own tools; not checked at runtime. |
-| P5 account ownership | ❌ **gap** | AccountAgent trusts an account ID named in the request. Episode 5. |
-| P6 customer isolation | ❌ **gap** | Consequence of the P5 gap. Episode 5. |
+| P5 account ownership | ❌ **gap** | AccountAgent trusts an account ID named in the request. Episodes 5 (read) and 7 (debit). |
+| P6 customer isolation | ❌ **gap** | Consequence of the P5 gap. Episodes 5 and 7. |
 | P7 only AccountAgent moves money | ✅ by construction | |
 | P8 approval before transfer | ❌ **gap** | Concierge "express" path + AccountAgent does not validate `approval_id`. Episode 6. |
-| P9 customer confirmation | ⚠️ partial | Works on the normal path (episode 2); bypassed by the express path (episode 6). |
-| P10 limits | ⚠️ partial | Enforced by RiskAgent (episode 4) and overdraft check, but skipped on the express path. |
+| P9 customer confirmation | ⚠️ partial | Works on the normal path (episode 2), bound to the customer and expires after 10 minutes; bypassed by the express path (episode 6). |
+| P10 limits | ⚠️ partial | Enforced by RiskAgent (episode 4) and overdraft check, but not checked on the express path. |
 | P11 RiskAgent minimal data | ✅ by construction | |
-| P12 Concierge isolation | ✅ by construction | |
+| P12 Concierge isolation | ✅ by construction | Error codes are translated into plain sentences. |
 | P13 audit | ✅ by construction | Audit log is included in every JSON trace. |
 | P14 truthful reporting | ✅ by construction | |
+| P15 communication topology | ✅ by construction | Not checked at runtime. |
+| P16 AuthAgent isolation | ✅ by construction | |
+| P17 LLM data flow | ⚠️ partial | Only the masked message is sent and the answer is validated, but an LLM answer with `skip_review: true` still reaches the express path (same gap as P8). |
 
 ## Toward Phase 2: where each policy can be enforced
 
@@ -82,5 +96,8 @@ All agent-to-agent communication already goes through one `MessageBus.send()` ca
 | P12 | Concierge → User response; Concierge tool calls | no session token / approval internals in text; Concierge calls only `parse_request` | redact / block |
 | P13 | after any login, read, denial or transfer | a matching `record_audit` entry exists; audit entries never removed | add missing entry / alert |
 | P14 | Concierge → User response containing "Sent" | preceded by `execute_transfer` reply with `status: completed` and matching amount/accounts | block |
+| P15 | any `MessageBus.send` | sender is ConciergeAgent and the performative is in the receiver's accepted list | block |
+| P16 | AuthAgent reply | keys ⊆ {status, reason, attempts_left, session_token, customer_id} | strip fields |
+| P17 | LLM request (`llm.chat`) | only the system prompt + the current masked message | block |
 
-Episodes 5 and 6 will be re-run in Phase 2 and are expected to be intercepted at the P5 and P8 rules respectively, together with one compliant run.
+Episodes 5, 6 and 7 will be re-run in Phase 2 and are expected to be intercepted at the P5, P8 and P5 rules respectively, together with a compliant run.

@@ -1,6 +1,6 @@
 # Example 1: Balance, small transfer to a saved payee, and history (normal use)
 
-_Real episode: produced by running the Phase 1 prototype (`python -m bankassist.run_scenarios`). Full trace: `traces/phase1/s1_everyday_banking.json`._
+_Real episode: produced by running the Phase 1 prototype (`python3 -m bankassist.run_scenarios`). Full trace: `traces/phase1/s1_everyday_banking.json`._
 
 ## Initial Inputs
 

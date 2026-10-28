@@ -21,16 +21,15 @@ All commands are run from this `src/` directory.
 ### 1. Reproduce the traces and episodes
 
 ```bash
-cd src
 python3 -m bankassist.run_scenarios
 ```
 
-This runs the six scripted scenarios in `bankassist/scenarios.py` and writes:
+This runs the seven scripted scenarios in `bankassist/scenarios.py` and writes:
 
 - `../traces/phase1/<scenario>.json` and `.md`: full agent traces
 - `../traces/README.md`: overview of each scenario and the policies involved
 - `../traces/viewer.html`: swim-lane viewer of all traces (open in any browser, no server needed)
-- `../BankAssist/episodes/example1.md` … `example6.md`: episode write-ups
+- `../BankAssist/episodes/example1.md` … `example7.md`: episode write-ups
 
 Example output:
 
@@ -122,7 +121,7 @@ src/
     ├── app.py              wires bank, bus, tracer and agents together
     ├── trace.py            records thoughts / actions / observations / messages; JSON + Markdown export
     ├── llm.py              optional OpenAI-compatible LLM client (stdlib only)
-    ├── scenarios.py        the six scripted scenarios
+    ├── scenarios.py        the seven scripted scenarios
     ├── run_scenarios.py    runs the scenarios, writes traces and episodes
     ├── viewer.py           builds traces/viewer.html
     └── cli.py              interactive chat

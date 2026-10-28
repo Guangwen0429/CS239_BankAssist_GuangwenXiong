@@ -1,6 +1,6 @@
 # Example 3: Wrong PIN three times locks the profile
 
-_Real episode: produced by running the Phase 1 prototype (`python -m bankassist.run_scenarios`). Full trace: `traces/phase1/s3_failed_login_lockout.json`._
+_Real episode: produced by running the Phase 1 prototype (`python3 -m bankassist.run_scenarios`). Full trace: `traces/phase1/s3_failed_login_lockout.json`._
 
 ## Initial Inputs
 

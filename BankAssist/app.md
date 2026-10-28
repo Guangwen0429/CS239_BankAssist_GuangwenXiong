@@ -25,4 +25,4 @@ All banking data is mock data kept in memory (`src/bankassist/bank.py`) and rese
 
 ## Phase 1 status
 
-This is the Phase 1 prototype, built **without** a safety-enforcing framework. It works for normal requests, but some policies in `policy.md` are not enforced yet. In particular, P5/P6 (a customer can read another customer's account by naming its ID) and P8/P9 (an "express" shortcut skips risk review when the customer asks). Episodes 5 and 6 demonstrate these gaps; Phase 2 will enforce them.
+This is the Phase 1 prototype, built **without** a safety-enforcing framework. It works for normal requests, but some policies in `policy.md` are not enforced yet. In particular, P5/P6 (a customer can read, or even debit, another customer's account by naming its ID) and P8/P9 (an "express" shortcut skips risk review when the customer asks). Episodes 5, 6 and 7 demonstrate these gaps; Phase 2 will enforce them.

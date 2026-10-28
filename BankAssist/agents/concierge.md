@@ -38,7 +38,8 @@ The LLM's answer is validated before use: unknown intents, malformed account IDs
 - `yes / yes please / sure / confirm / go ahead / ok` → `confirm`; `no / no thanks / cancel / stop` → `decline`.
 - Account IDs are found with the pattern `ACC-dddd` / `EXT-dddd`; they are removed before looking for an amount so that `ACC-2001` is never read as $2,001.
 - Amounts: `$1,500`, `$200.50`, `300 dollars`.
-- `transfer / send / wire / pay / move` → `transfer`; `from <ID|checking|savings>` gives the source, `to <ID>` (or the last account ID) gives the destination, `to checking/savings` means the customer's own account (`to_type`); words like `skip`, `bypass`, `without the security check` set `skip_review`.
+- Amounts must be written normally; strings such as `$1e3`, `$10.555` or `$1,,5` are not read as any amount, so the customer is asked again.
+- `transfer / send / wire / pay / move` → `transfer`; `from <ID|checking|savings>` gives the source, `to <ID>` (or the last account ID) gives the destination, `to checking/savings` means the customer's own account (`to_type`); words like `skip`, `bypass`, `without the security check` set `skip_review`. If two different destination accounts are named, the destination is left empty and the customer is asked. If the same message also says `cancel`, `never mind` or `actually no`, it is treated as `decline`.
 - `transactions / history / statement / activity / spent` → `view_transactions`; `balance / how much` → `check_balance`; `help` → `help`; anything else → `unknown`.
 
 ## Decision logic (routing)
@@ -48,11 +49,11 @@ The LLM's answer is validated before use: unknown intents, malformed account IDs
 | No session yet | Sends `authenticate {customer_id, pin}` to **AuthAgent**. If the reply is not `verified`, it answers with a refusal (and attempts left / locked notice) and stops. Otherwise it stores the session token. |
 | `check_balance` / `view_transactions` | Sends `get_balance` / `get_transactions {session_token, account_id, account_type}` to **AccountAgent** and formats the result. |
 | `transfer` | If the source or destination is named by type (or the source is not named at all), asks **AccountAgent** `list_my_accounts` and picks the customer's own account of that type (default source: checking). Sends `assess_transfer {customer_id, from_account, to_account, amount}` to **RiskAgent**. `deny` → explains why. `confirmation_required` → stores the reference and asks the customer to reply YES/NO. `approve` → sends `execute_transfer {session_token, from_account, to_account, amount, approval_id}` to **AccountAgent**. |
-| `confirm` / `decline` | Sends `confirm_transfer {ref, customer_confirmed}` to **RiskAgent**; if approved, sends `execute_transfer` to **AccountAgent**. |
-| Any new request while a transfer is pending | Sends `confirm_transfer {ref, customer_confirmed: false}` to **RiskAgent** so the pending transfer is cancelled (P9). |
+| `confirm` / `decline` | Sends `confirm_transfer {ref, customer_id, customer_confirmed}` to **RiskAgent**; if approved, sends `execute_transfer` to **AccountAgent**. |
+| Any new request while a transfer is pending | Sends `confirm_transfer {ref, customer_id, customer_confirmed: false}` to **RiskAgent** so the pending transfer is cancelled (P9), and starts the reply with a note that it was cancelled and no money moved (P14). Logging out cancels it the same way. |
 | AccountAgent replies `invalid_session` (session older than 15 min) | Asks **AuthAgent** to verify the customer again and retries the request once. |
 | `help` / `unknown` | Answers directly without contacting other agents. |
 
-It reports "Done. Sent …" only when AccountAgent returns `status: completed` (P14).
+It reports "Done. Sent …" only when AccountAgent returns `status: completed` (P14). Error codes from other agents (`insufficient_funds`, `no_such_account`, …) are translated into plain sentences before they reach the customer (P12). Before anything is recorded or parsed, a PIN typed into the chat text is replaced by `****` (P2).
 
 **Phase 1 gap (P8, P9).** If `skip_review` is true, the Concierge uses an "express" path left over from early development and sends `execute_transfer` straight to AccountAgent with `approval_id = null`, without contacting RiskAgent. See episode 6. Phase 2 removes this path.

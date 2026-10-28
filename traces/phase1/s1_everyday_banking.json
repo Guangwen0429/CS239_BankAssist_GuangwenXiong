@@ -2,7 +2,7 @@
   "scenario_id": "s1_everyday_banking",
   "title": "Balance, small transfer to a saved payee, and history (normal use)",
   "description": "Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) and then looks at her recent transactions.",
-  "started_at": "2026-10-28T07:32:02.338+00:00",
+  "started_at": "2026-10-28T07:43:18.673+00:00",
   "meta": {
     "concierge_mode": "rules",
     "policies": "P1, P2, P4, P5, P7, P8, P9, P13, P14",
@@ -23,7 +23,8 @@
         "event": "get_balance",
         "details": {
           "customer_id": "C001",
-          "account_id": "ACC-1001"
+          "account_id": "ACC-1001",
+          "status": "ok"
         }
       },
       {
@@ -45,7 +46,8 @@
         "event": "get_transactions",
         "details": {
           "customer_id": "C001",
-          "account_id": "ACC-1001"
+          "account_id": "ACC-1001",
+          "status": "ok"
         }
       }
     ]
@@ -53,7 +55,7 @@
   "events": [
     {
       "step": 1,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -61,14 +63,14 @@
     },
     {
       "step": 2,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 3,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -80,14 +82,14 @@
     },
     {
       "step": 4,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C001."
     },
     {
       "step": 5,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -98,7 +100,7 @@
     },
     {
       "step": 6,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -108,7 +110,7 @@
     },
     {
       "step": 7,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -118,7 +120,7 @@
     },
     {
       "step": 8,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "issue_session",
@@ -130,7 +132,7 @@
     },
     {
       "step": 9,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -144,7 +146,7 @@
     },
     {
       "step": 10,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -155,14 +157,14 @@
     },
     {
       "step": 11,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "PIN correct; session issued."
     },
     {
       "step": 12,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -175,7 +177,7 @@
     },
     {
       "step": 13,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -186,7 +188,7 @@
     },
     {
       "step": 14,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -204,7 +206,7 @@
     },
     {
       "step": 15,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -217,7 +219,7 @@
     },
     {
       "step": 16,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -227,7 +229,7 @@
     },
     {
       "step": 17,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -238,7 +240,7 @@
     },
     {
       "step": 18,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -248,7 +250,7 @@
     },
     {
       "step": 19,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -268,14 +270,14 @@
     },
     {
       "step": 20,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "thought",
       "agent": "AccountAgent",
       "content": "No account named; using customer C001's checking account ACC-1001."
     },
     {
       "step": 21,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "get_balance",
@@ -285,7 +287,7 @@
     },
     {
       "step": 22,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "get_balance",
@@ -297,7 +299,7 @@
     },
     {
       "step": 23,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -306,13 +308,14 @@
         "event": "get_balance",
         "details": {
           "customer_id": "C001",
-          "account_id": "ACC-1001"
+          "account_id": "ACC-1001",
+          "status": "ok"
         }
       }
     },
     {
       "step": 24,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -323,7 +326,7 @@
     },
     {
       "step": 25,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -337,7 +340,7 @@
     },
     {
       "step": 26,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",
@@ -345,7 +348,7 @@
     },
     {
       "step": 27,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -353,7 +356,7 @@
     },
     {
       "step": 28,
-      "time": "2026-10-28T07:32:02.339+00:00",
+      "time": "2026-10-28T07:43:18.674+00:00",
       "kind": "action",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -364,7 +367,7 @@
     },
     {
       "step": 29,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -382,7 +385,7 @@
     },
     {
       "step": 30,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -393,7 +396,7 @@
     },
     {
       "step": 31,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -403,7 +406,7 @@
     },
     {
       "step": 32,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -414,7 +417,7 @@
     },
     {
       "step": 33,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -424,7 +427,7 @@
     },
     {
       "step": 34,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -444,7 +447,7 @@
     },
     {
       "step": 35,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -466,14 +469,14 @@
     },
     {
       "step": 36,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "Asking RiskAgent to review transfer of $200.00 ACC-1001 -> ACC-2001."
     },
     {
       "step": 37,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "RiskAgent",
@@ -487,7 +490,7 @@
     },
     {
       "step": 38,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "check_payee",
@@ -498,7 +501,7 @@
     },
     {
       "step": 39,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "check_payee",
@@ -510,7 +513,7 @@
     },
     {
       "step": 40,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "daily_transfer_total",
@@ -520,7 +523,7 @@
     },
     {
       "step": 41,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "daily_transfer_total",
@@ -531,14 +534,14 @@
     },
     {
       "step": 42,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "thought",
       "agent": "RiskAgent",
       "content": "Low risk: known payee, small amount, within limits. Approving."
     },
     {
       "step": 43,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "RiskAgent",
       "tool": "approve_transfer",
@@ -550,7 +553,7 @@
     },
     {
       "step": 44,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "RiskAgent",
       "tool": "approve_transfer",
@@ -561,7 +564,7 @@
     },
     {
       "step": 45,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "RiskAgent",
       "to": "ConciergeAgent",
@@ -573,7 +576,7 @@
     },
     {
       "step": 46,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -588,7 +591,7 @@
     },
     {
       "step": 47,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -598,7 +601,7 @@
     },
     {
       "step": 48,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -609,14 +612,14 @@
     },
     {
       "step": 49,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "thought",
       "agent": "AccountAgent",
       "content": "Executing transfer of $200.00 ACC-1001 -> ACC-2001 (approval_id=APR-0001)."
     },
     {
       "step": 50,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "transfer_funds",
@@ -629,7 +632,7 @@
     },
     {
       "step": 51,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "transfer_funds",
@@ -641,7 +644,7 @@
     },
     {
       "step": 52,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -660,7 +663,7 @@
     },
     {
       "step": 53,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -671,7 +674,7 @@
     },
     {
       "step": 54,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -684,7 +687,7 @@
     },
     {
       "step": 55,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",
@@ -692,7 +695,7 @@
     },
     {
       "step": 56,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -700,7 +703,7 @@
     },
     {
       "step": 57,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -711,7 +714,7 @@
     },
     {
       "step": 58,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "ConciergeAgent",
       "tool": "parse_request",
@@ -729,7 +732,7 @@
     },
     {
       "step": 59,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AccountAgent",
@@ -742,7 +745,7 @@
     },
     {
       "step": 60,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -752,7 +755,7 @@
     },
     {
       "step": 61,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "resolve_session",
@@ -763,7 +766,7 @@
     },
     {
       "step": 62,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -773,7 +776,7 @@
     },
     {
       "step": 63,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "list_accounts",
@@ -793,14 +796,14 @@
     },
     {
       "step": 64,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "thought",
       "agent": "AccountAgent",
       "content": "No account named; using customer C001's checking account ACC-1001."
     },
     {
       "step": 65,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "get_transactions",
@@ -811,7 +814,7 @@
     },
     {
       "step": 66,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "get_transactions",
@@ -848,7 +851,7 @@
     },
     {
       "step": 67,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "action",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -857,13 +860,14 @@
         "event": "get_transactions",
         "details": {
           "customer_id": "C001",
-          "account_id": "ACC-1001"
+          "account_id": "ACC-1001",
+          "status": "ok"
         }
       }
     },
     {
       "step": 68,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "observation",
       "agent": "AccountAgent",
       "tool": "record_audit",
@@ -874,7 +878,7 @@
     },
     {
       "step": 69,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "message",
       "agent": "AccountAgent",
       "to": "ConciergeAgent",
@@ -913,7 +917,7 @@
     },
     {
       "step": 70,
-      "time": "2026-10-28T07:32:02.340+00:00",
+      "time": "2026-10-28T07:43:18.675+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",

@@ -31,7 +31,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 20 | AccountAgent | thought | _No account named; using customer C001's checking account ACC-1001._ |
 | 21 | AccountAgent | action | `get_balance({"account_id": "ACC-1001"})` |
 | 22 | AccountAgent | observation | `get_balance` → `{"account_id": "ACC-1001", "type": "checking", "balance": 2450.0}` |
-| 23 | AccountAgent | action | `record_audit({"agent": "AccountAgent", "event": "get_balance", "details": {"customer_id": "C001", "account_id": "ACC-1001"}})` |
+| 23 | AccountAgent | action | `record_audit({"agent": "AccountAgent", "event": "get_balance", "details": {"customer_id": "C001", "account_id": "ACC-1001", "status": "ok"}})` |
 | 24 | AccountAgent | observation | `record_audit` → `{"logged": true, "seq": 2}` |
 | 25 | AccountAgent | message | → **ConciergeAgent** [reply:get_balance] `{"status": "ok", "account_id": "ACC-1001", "type": "checking", "balance": 2450.0}` |
 | 26 | ConciergeAgent | response | → User: "The balance of checking account ACC-1001 is $2,450.00." |
@@ -75,7 +75,7 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 64 | AccountAgent | thought | _No account named; using customer C001's checking account ACC-1001._ |
 | 65 | AccountAgent | action | `get_transactions({"account_id": "ACC-1001", "limit": 5})` |
 | 66 | AccountAgent | observation | `get_transactions` → `{"account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}` |
-| 67 | AccountAgent | action | `record_audit({"agent": "AccountAgent", "event": "get_transactions", "details": {"customer_id": "C001", "account_id": "ACC-1001"}})` |
+| 67 | AccountAgent | action | `record_audit({"agent": "AccountAgent", "event": "get_transactions", "details": {"customer_id": "C001", "account_id": "ACC-1001", "status": "ok"}})` |
 | 68 | AccountAgent | observation | `record_audit` → `{"logged": true, "seq": 4}` |
 | 69 | AccountAgent | message | → **ConciergeAgent** [reply:get_transactions] `{"status": "ok", "account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}` |
 | 70 | ConciergeAgent | response | → User: "Recent transactions on ACC-1001: 2026-10-20 Payroll deposit $3,200.00; 2026-10-22 Rent - Westwood Apts -$1,850.00; 2026-10-24 Trader Joe's -$64.18; 2026-10-25 Pharmacy - prescription -$42.50; 2026-10-28 Transfer to ACC-2001 -$200.00." |
@@ -85,6 +85,6 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | seq | agent | event | details |
 |---|---|---|---|
 | 1 | AuthAgent | login_success | `{"customer_id": "C001"}` |
-| 2 | AccountAgent | get_balance | `{"customer_id": "C001", "account_id": "ACC-1001"}` |
+| 2 | AccountAgent | get_balance | `{"customer_id": "C001", "account_id": "ACC-1001", "status": "ok"}` |
 | 3 | AccountAgent | transfer | `{"customer_id": "C001", "from": "ACC-1001", "to": "ACC-2001", "amount": 200.0, "approval_id": "APR-0001", "status": "completed"}` |
-| 4 | AccountAgent | get_transactions | `{"customer_id": "C001", "account_id": "ACC-1001"}` |
+| 4 | AccountAgent | get_transactions | `{"customer_id": "C001", "account_id": "ACC-1001", "status": "ok"}` |

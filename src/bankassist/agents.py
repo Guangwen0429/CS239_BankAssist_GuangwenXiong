@@ -22,7 +22,10 @@ import math
 import re
 from typing import Any
 
-from .bank import DAILY_TRANSFER_LIMIT, SINGLE_TRANSFER_LIMIT, STEP_UP_THRESHOLD, Bank
+import time
+
+from .bank import (APPROVAL_TTL_SECONDS, DAILY_TRANSFER_LIMIT, SINGLE_TRANSFER_LIMIT,
+                   STEP_UP_THRESHOLD, Bank)
 from .llm import LLMUnavailable, chat, llm_config
 from .trace import Tracer
 
@@ -74,7 +77,7 @@ class AuthAgent(Agent):
 
     def handle(self, sender, performative, payload):
         if performative == "authenticate":
-            cid = payload.get("customer_id", "")
+            cid = str(payload.get("customer_id", "")).strip().upper()
             self.think(f"Verifying identity for customer {cid}.")
             res = self.call_tool("verify_identity", customer_id=cid, pin=payload.get("pin", ""))
             if res["verified"]:
@@ -90,9 +93,6 @@ class AuthAgent(Agent):
             if "attempts_left" in res:
                 out["attempts_left"] = res["attempts_left"]
             return out
-
-        if performative == "validate_session":
-            return self.call_tool("resolve_session", session_token=payload.get("session_token", ""))
 
         return {"status": "error", "reason": f"unsupported request {performative}"}
 
@@ -113,7 +113,9 @@ class AccountAgent(Agent):
         for a in accts:
             if a["type"] == wanted:
                 return a["account_id"]
-        return accts[0]["account_id"] if accts else None
+        if account_type is None and accts:
+            return accts[0]["account_id"]
+        return None
 
     def handle(self, sender, performative, payload):
         cid = self._customer_for(payload.get("session_token", ""))
@@ -132,6 +134,9 @@ class AccountAgent(Agent):
                 self.think(f"Request names account {account_id}; using it.")
             else:
                 account_id = self._pick_account(cid, payload.get("account_type"))
+                if account_id is None:
+                    self.think(f"Customer {cid} has no {payload.get('account_type')} account.")
+                    return {"status": "error", "reason": "no_account_of_type"}
                 self.think(f"No account named; using customer {cid}'s "
                            f"{payload.get('account_type') or 'checking'} account {account_id}.")
             if performative == "get_balance":
@@ -139,7 +144,8 @@ class AccountAgent(Agent):
             else:
                 res = self.call_tool("get_transactions", account_id=account_id, limit=5)
             self.call_tool("record_audit", agent=self.name, event=performative,
-                           details={"customer_id": cid, "account_id": account_id})
+                           details={"customer_id": cid, "account_id": account_id,
+                                    "status": "error" if "error" in res else "ok"})
             if "error" in res:
                 return {"status": "error", "reason": res["error"]}
             return {"status": "ok", **res}
@@ -170,6 +176,7 @@ class RiskAgent(Agent):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
         self.pending: dict[str, dict] = {}
+        self._ref_counter = 0
 
     def handle(self, sender, performative, payload):
         if performative == "assess_transfer":
@@ -192,11 +199,14 @@ class RiskAgent(Agent):
             if reasons_deny:
                 self.think("Hard limit hit: " + "; ".join(reasons_deny) + ". Denying.")
                 self.call_tool("record_audit", agent=self.name, event="transfer_denied",
-                               details={"from": frm, "to": to, "amount": amt, "reasons": reasons_deny})
+                               details={"customer_id": cid, "from": frm, "to": to, "amount": amt,
+                                        "reasons": reasons_deny})
                 return {"decision": "deny", "reasons": reasons_deny}
             if reasons_step:
-                ref = f"RISK-{len(self.pending) + 1:03d}"
-                self.pending[ref] = {"customer_id": cid, "from_account": frm, "to_account": to, "amount": amt}
+                self._ref_counter += 1
+                ref = f"RISK-{self._ref_counter:03d}"
+                self.pending[ref] = {"customer_id": cid, "from_account": frm, "to_account": to,
+                                     "amount": amt, "created_at": time.time()}
                 self.think("Needs customer confirmation: " + "; ".join(reasons_step) + ".")
                 return {"decision": "confirmation_required", "ref": ref, "reasons": reasons_step}
             self.think("Low risk: known payee, small amount, within limits. Approving.")
@@ -205,16 +215,23 @@ class RiskAgent(Agent):
 
         if performative == "confirm_transfer":
             ref = payload.get("ref")
-            pend = self.pending.pop(ref, None)
-            if pend is None:
+            pend = self.pending.get(ref)
+            if pend is None or pend["customer_id"] != payload.get("customer_id"):
+                self.think(f"No pending transfer {ref} for this customer.")
                 return {"decision": "deny", "reasons": ["unknown or expired reference"]}
+            del self.pending[ref]
+            created = pend.pop("created_at")
+            if time.time() - created > APPROVAL_TTL_SECONDS:
+                self.think(f"{ref} waited more than 10 minutes for confirmation; expiring it.")
+                return {"decision": "deny", "reasons": ["the confirmation window (10 minutes) has passed"]}
             if not payload.get("customer_confirmed"):
                 self.think(f"Customer did not confirm {ref}; cancelling.")
                 return {"decision": "cancelled"}
             self.think(f"Customer confirmed {ref}; issuing approval.")
             appr = self.call_tool("approve_transfer", from_account=pend["from_account"],
                                   to_account=pend["to_account"], amount=pend["amount"])
-            return {"decision": "approve", "approval_id": appr["approval_id"], **pend}
+            return {"decision": "approve", "approval_id": appr["approval_id"],
+                    **{k: pend[k] for k in ("from_account", "to_account", "amount")}}
 
         return {"decision": "error", "reason": f"unsupported request {performative}"}
 
@@ -242,7 +259,10 @@ Rules:
 - Output JSON only, no explanation."""
 
 _ACCOUNT_RE = re.compile(r"\b(?:ACC|EXT)-\d{4}\b", re.IGNORECASE)
-_AMOUNT_RE = re.compile(r"\$\s*(\d[\d,]*(?:\.\d{1,2})?)|(\d[\d,]*(?:\.\d{1,2})?)\s*(?:dollars|usd)\b",
+_NUM = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?"
+# a dollar amount: "$1,500", "$20.50", "300 dollars".  The look-arounds reject things such as
+# "$1e3", "$10.555" or "$1,,5" instead of silently reading them as a different number.
+_AMOUNT_RE = re.compile(rf"\$\s*({_NUM})(?![\deE]|[.,][\d,])|(?<![\d.,$])\b({_NUM})\s*(?:dollars|usd)\b",
                         re.IGNORECASE)
 _INTENT_FIELDS = ("intent", "account_id", "account_type", "from_account", "from_type",
                   "to_account", "to_type", "amount", "skip_review")
@@ -275,21 +295,25 @@ def rule_parse(text: str) -> dict[str, Any]:
 
     if re.search(r"\b(transfer|send|wire|pay|move)\b", low):
         out["intent"] = "transfer"
-        fm = re.search(r"from\s+(?:my\s+)?((?:acc|ext)-\d{4}|checking|savings)", low)
-        tm = re.search(r"\bto\s+(?:my\s+|account\s+)?((?:acc|ext)-\d{4}|checking|savings)", low)
+        fm = re.search(r"\bfrom\s+(?:my\s+)?((?:acc|ext)-\d{4}|checking|savings)\b", low)
+        tm = re.search(r"\bto\s+(?:my\s+|account\s+)?((?:acc|ext)-\d{4}|checking|savings)\b", low)
         if fm:
             v = fm.group(1)
             out["from_account" if "-" in v else "from_type"] = v.upper() if "-" in v else v
-        if tm and "-" in tm.group(1):
+        destinations = {a for a in accounts if a != out["from_account"]}
+        if len(destinations) > 1:
+            pass  # several possible destinations: leave it unset so the customer is asked
+        elif tm and "-" in tm.group(1):
             out["to_account"] = tm.group(1).upper()
         elif tm:
             out["to_type"] = tm.group(1)
-        elif accounts:
-            rest = [a for a in accounts if a != out["from_account"]]
-            out["to_account"] = rest[-1] if rest else None
+        elif destinations:
+            out["to_account"] = destinations.pop()
         out["skip_review"] = bool(re.search(
-            r"\b(skip|bypass|without (the )?(security|risk|review|check|verification)|no (need for|review|check))",
+            r"\b(skip|bypass|without (the )?(security|risk|review|check|verification)\b|no (need for|review|check)\b)",
             low))
+        if re.search(r"\b(cancel|never ?mind|actually no|don'?t send)\b", low):
+            out["intent"] = "decline"  # the customer took the request back in the same message
     elif re.search(r"\b(transactions?|history|statement|activity|spent|purchases)\b", low):
         out["intent"] = "view_transactions"
     elif re.search(r"\b(balance|how much)\b", low):
@@ -334,6 +358,20 @@ def normalize_request(cand: Any) -> dict[str, Any] | None:
     return out
 
 
+_REASONS = {
+    "no_such_account": "that account does not exist",
+    "no_account_of_type": "there is no account of that type on your profile",
+    "insufficient_funds": "there is not enough money in the source account",
+    "invalid_amount": "the amount is not valid",
+    "invalid_session": "your session could not be verified",
+}
+
+
+def _explain(reason: Any) -> str:
+    """Customer-facing wording for an internal error code (P12)."""
+    return _REASONS.get(reason, "something went wrong on our side")
+
+
 def _money(x: float) -> str:
     return f"-${-x:,.2f}" if x < 0 else f"${x:,.2f}"
 
@@ -374,6 +412,9 @@ class ConciergeAgent(Agent):
 
     # --------------------------------------------------------------- one turn
     def handle_user(self, customer_id: str, pin: str, text: str) -> str:
+        if pin and len(pin) >= 4:
+            # a PIN typed into the chat text is masked before it is traced or parsed (P2)
+            text = re.sub(rf"(?<![\d$.,]){re.escape(pin)}(?![\d.,])", "****", text)
         self.tracer.user_input(text, to=self.name)
         self._creds = (customer_id, pin)
         try:
@@ -418,23 +459,36 @@ class ConciergeAgent(Agent):
 
         if intent in ("confirm", "decline"):
             return self._finish_pending(confirmed=(intent == "confirm"))
+        notice = ""
+        if self.pending_ref:
+            ref = self.pending_ref
+            self.think(f"New request while {ref} is waiting; cancelling the pending transfer.")
+            self.cancel_pending()
+            notice = "(Your transfer that was waiting for confirmation has been cancelled; no money was moved.) "
+        return notice + self._route(req)
+
+    def cancel_pending(self) -> None:
+        """Tell RiskAgent to drop a transfer that is still waiting for the customer's YES."""
         if self.pending_ref:
             ref, self.pending_ref = self.pending_ref, None
-            self.think(f"New request while {ref} is waiting; cancelling the pending transfer.")
-            self.send("RiskAgent", "confirm_transfer", {"ref": ref, "customer_confirmed": False})
+            self.send("RiskAgent", "confirm_transfer",
+                      {"ref": ref, "customer_id": self.customer_id, "customer_confirmed": False})
+
+    def _route(self, req: dict[str, Any]) -> str:
+        intent = req["intent"]
 
         if intent == "check_balance":
             res = self._ask_account("get_balance", {
                 "account_id": req["account_id"], "account_type": req["account_type"]})
             if res.get("status") != "ok":
-                return f"Sorry, I couldn't get that balance ({res.get('reason')})."
+                return f"Sorry, I couldn't get that balance: {_explain(res.get('reason'))}."
             return f"The balance of {res['type']} account {res['account_id']} is {_money(res['balance'])}."
 
         if intent == "view_transactions":
             res = self._ask_account("get_transactions", {
                 "account_id": req["account_id"], "account_type": req["account_type"]})
             if res.get("status") != "ok":
-                return f"Sorry, I couldn't get the transactions ({res.get('reason')})."
+                return f"Sorry, I couldn't get the transactions: {_explain(res.get('reason'))}."
             rows = "; ".join(f"{t['date']} {t['desc']} {_money(t['amount'])}" for t in res["transactions"])
             return f"Recent transactions on {res['account_id']}: {rows or 'none'}."
 
@@ -442,7 +496,7 @@ class ConciergeAgent(Agent):
             return self._transfer(req)
 
         if intent == "help":
-            return ("I can show balances and recent transactions, and send transfers between "
+            return ("I can show balances and recent transactions, and make transfers from your "
                     "accounts. Try: 'What's my checking balance?' or 'Send $50 to ACC-2001'.")
         return "Sorry, I didn't understand. You can ask for a balance, recent transactions, or a transfer."
 
@@ -454,7 +508,7 @@ class ConciergeAgent(Agent):
         if not frm or not to:
             accts = self._ask_account("list_my_accounts", {})
             if accts.get("status") != "ok":
-                return f"Sorry, I couldn't look up your accounts ({accts.get('reason')})."
+                return f"Sorry, I couldn't look up your accounts: {_explain(accts.get('reason'))}."
             mine = {a["type"]: a["account_id"] for a in accts.get("accounts", [])}
             if not frm:
                 wanted = req.get("from_type") or ("savings" if req.get("to_type") == "checking" else "checking")
@@ -492,7 +546,8 @@ class ConciergeAgent(Agent):
         if not self.pending_ref:
             return "There is nothing waiting for confirmation."
         ref, self.pending_ref = self.pending_ref, None
-        risk = self.send("RiskAgent", "confirm_transfer", {"ref": ref, "customer_confirmed": confirmed})
+        risk = self.send("RiskAgent", "confirm_transfer",
+                         {"ref": ref, "customer_id": self.customer_id, "customer_confirmed": confirmed})
         if risk["decision"] == "cancelled":
             return "OK, the transfer was cancelled. No money was moved."
         if risk["decision"] != "approve":
@@ -503,7 +558,7 @@ class ConciergeAgent(Agent):
     def _execute(self, details: dict[str, Any], approval_id: str | None) -> str:
         res = self._ask_account("execute_transfer", {**details, "approval_id": approval_id})
         if res.get("status") != "completed":
-            return f"The transfer failed ({res.get('reason')}). No money was moved."
+            return f"The transfer failed: {_explain(res.get('reason'))}. No money was moved."
         return (f"Done. Sent {_money(details['amount'])} from {details['from_account']} to "
                 f"{details['to_account']} (transfer {res['transfer_id']}). "
                 f"New balance: {_money(res['new_balance'])}.")

@@ -1,6 +1,6 @@
 # Example 2: Large transfer with risk review and customer confirmation (normal use)
 
-_Real episode: produced by running the Phase 1 prototype (`python -m bankassist.run_scenarios`). Full trace: `traces/phase1/s2_transfer_with_confirmation.json`._
+_Real episode: produced by running the Phase 1 prototype (`python3 -m bankassist.run_scenarios`). Full trace: `traces/phase1/s2_transfer_with_confirmation.json`._
 
 ## Initial Inputs
 
@@ -44,11 +44,11 @@ _Step numbers match the full JSON trace; `record_audit` calls are left out here 
 30. **User → ConciergeAgent**: "YES"
 31. **ConciergeAgent** calls `parse_request` with `{"text": "YES", "mode": "rules"}`
 32. **ConciergeAgent** observes `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}`
-33. **ConciergeAgent → RiskAgent** `confirm_transfer`: `{"ref": "RISK-001", "customer_confirmed": true}`
+33. **ConciergeAgent → RiskAgent** `confirm_transfer`: `{"ref": "RISK-001", "customer_id": "C001", "customer_confirmed": true}`
 34. **RiskAgent** (thought): Customer confirmed RISK-001; issuing approval.
 35. **RiskAgent** calls `approve_transfer` with `{"from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`
 36. **RiskAgent** observes `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}`
-37. **RiskAgent → ConciergeAgent** `reply:confirm_transfer`: `{"decision": "approve", "approval_id": "APR-0001", "customer_id": "C001", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`
+37. **RiskAgent → ConciergeAgent** `reply:confirm_transfer`: `{"decision": "approve", "approval_id": "APR-0001", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}`
 38. **ConciergeAgent → AccountAgent** `execute_transfer`: `{"session_token": "sess_31081e644773", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0, "approval_id": "APR-0001"}`
 39. **AccountAgent** calls `resolve_session` with `{"session_token": "sess_31081e644773"}`
 40. **AccountAgent** observes `resolve_session` → `{"valid": true, "customer_id": "C001"}`

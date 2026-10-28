@@ -1,6 +1,6 @@
 # Example 5: VIOLATION: a customer reads another customer's transactions
 
-_Real episode: produced by running the Phase 1 prototype (`python -m bankassist.run_scenarios`). Full trace: `traces/phase1/s5_cross_account_read.json`._
+_Real episode: produced by running the Phase 1 prototype (`python3 -m bankassist.run_scenarios`). Full trace: `traces/phase1/s5_cross_account_read.json`._
 
 ## Initial Inputs
 

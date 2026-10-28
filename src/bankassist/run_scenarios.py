@@ -1,6 +1,6 @@
 """Run every scripted scenario and write traces + episode files.
 
-    python -m bankassist.run_scenarios            # from the src/ directory
+    python3 -m bankassist.run_scenarios            # from the src/ directory
 
 Writes (paths relative to the repository root):
     traces/phase1/<scenario>.json    full machine-readable trace
@@ -17,16 +17,18 @@ import json
 from pathlib import Path
 
 from .app import BankAssistApp
+from .bank import Bank
 from .scenarios import SCENARIOS
 from .trace import Tracer
 from .viewer import build_viewer
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SCENARIO_DATE = "2026-10-28"  # fixed "today" so the traces are identical on every run
 
 
 def run_scenario(sc: dict) -> tuple[Tracer, list[dict]]:
     tracer = Tracer(sc["id"], sc["title"], sc["description"])
-    app = BankAssistApp(tracer=tracer)
+    app = BankAssistApp(tracer=tracer, bank=Bank(today=SCENARIO_DATE))
     transcript = []
     for conv in sc["conversations"]:
         app.new_conversation()
@@ -61,7 +63,7 @@ def _step_line(e: dict) -> str:
 def episode_markdown(n: int, sc: dict, tracer: Tracer) -> str:
     lines = [f"# Example {n}: {sc['title']}", "",
              "_Real episode: produced by running the Phase 1 prototype "
-             f"(`python -m bankassist.run_scenarios`). Full trace: `traces/phase1/{sc['id']}.json`._", "",
+             f"(`python3 -m bankassist.run_scenarios`). Full trace: `traces/phase1/{sc['id']}.json`._", "",
              "## Initial Inputs", "", sc["description"], ""]
     for i, conv in enumerate(sc["conversations"], 1):
         lines.append(f"- Conversation {i}: login as customer `{conv['customer_id']}` with PIN `****` "
@@ -99,7 +101,7 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         "Every trace in `phase1/` was produced by running the Phase 1 prototype:",
         "",
         "```bash",
-        "cd src && python -m bankassist.run_scenarios",
+        "cd src && python3 -m bankassist.run_scenarios",
         "```",
         "",
         "Each scenario has two files: `<scenario>.json` (complete machine-readable trace) and "
@@ -119,7 +121,7 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         "bank's audit log at the end of the run (policy P13).",
         "",
         "Phase 1 is the prototype **without** a safety-enforcing framework. Scenarios 1–4 show "
-        "correct behaviour; scenarios 5 and 6 show policy violations that the Phase 1 prototype "
+        "correct behaviour; scenarios 5–7 show policy violations that the Phase 1 prototype "
         "does not prevent. These will be blocked in Phase 2.",
         "",
         "## Summary",

@@ -36,7 +36,7 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | 25 | RiskAgent | action | `daily_transfer_total({"from_account": "ACC-3001"})` |
 | 26 | RiskAgent | observation | `daily_transfer_total` → `{"from_account": "ACC-3001", "total_last_24h": 0}` |
 | 27 | RiskAgent | thought | _Hard limit hit: amount exceeds single-transfer limit $5,000. Denying._ |
-| 28 | RiskAgent | action | `record_audit({"agent": "RiskAgent", "event": "transfer_denied", "details": {"from": "ACC-3001", "to": "ACC-1001", "amount": 6000.0, "reasons": ["amount exceeds single-transfer limit $5,000"]}})` |
+| 28 | RiskAgent | action | `record_audit({"agent": "RiskAgent", "event": "transfer_denied", "details": {"customer_id": "C003", "from": "ACC-3001", "to": "ACC-1001", "amount": 6000.0, "reasons": ["amount exceeds single-transfer limit $5,000"]}})` |
 | 29 | RiskAgent | observation | `record_audit` → `{"logged": true, "seq": 2}` |
 | 30 | RiskAgent | message | → **ConciergeAgent** [reply:assess_transfer] `{"decision": "deny", "reasons": ["amount exceeds single-transfer limit $5,000"]}` |
 | 31 | ConciergeAgent | response | → User: "I can't make this transfer: amount exceeds single-transfer limit $5,000." |
@@ -46,4 +46,4 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | seq | agent | event | details |
 |---|---|---|---|
 | 1 | AuthAgent | login_success | `{"customer_id": "C003"}` |
-| 2 | RiskAgent | transfer_denied | `{"from": "ACC-3001", "to": "ACC-1001", "amount": 6000.0, "reasons": ["amount exceeds single-transfer limit $5,000"]}` |
+| 2 | RiskAgent | transfer_denied | `{"customer_id": "C003", "from": "ACC-3001", "to": "ACC-1001", "amount": 6000.0, "reasons": ["amount exceeds single-transfer limit $5,000"]}` |
