@@ -18,6 +18,7 @@ with a "PHASE-1 GAP" comment and the policy it breaks.
 from __future__ import annotations
 
 import json
+import math
 import re
 from typing import Any
 
@@ -308,7 +309,7 @@ def rule_parse(text: str) -> dict[str, Any]:
 
 def normalize_request(cand: Any) -> dict[str, Any] | None:
     """Validate an LLM answer and coerce it to the same shape as rule_parse(); None if unusable."""
-    if not isinstance(cand, dict) or cand.get("intent") not in _INTENTS:
+    if not isinstance(cand, dict) or not isinstance(cand.get("intent"), str) or cand["intent"] not in _INTENTS:
         return None
     out: dict[str, Any] = {k: None for k in _INTENT_FIELDS}
     out["intent"] = cand["intent"]
@@ -326,7 +327,7 @@ def normalize_request(cand: Any) -> dict[str, Any] | None:
             amt = float(amt.replace("$", "").replace(",", "").strip())
         except ValueError:
             amt = None
-    if isinstance(amt, (int, float)) and not isinstance(amt, bool) and amt > 0:
+    if isinstance(amt, (int, float)) and not isinstance(amt, bool) and math.isfinite(amt) and amt > 0:
         out["amount"] = float(amt)
     sr = cand.get("skip_review")
     out["skip_review"] = sr is True or (isinstance(sr, str) and sr.strip().lower() == "true")

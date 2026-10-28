@@ -13,7 +13,7 @@ python3 -m unittest discover -s tests -v      # standard library only
 python3 -m pytest tests -q                    # also works if pytest is installed
 ```
 
-Expected result: everything passes, with **11 expected failures** (shown as `x`
+Expected result: 182 tests, all passing, with **11 expected failures** (shown as `x`
 by both runners). Those 11 tests describe policies that Phase 1 does not enforce
 yet; see [Expected failures](#expected-failures-known-phase-1-gaps) below.
 
@@ -44,7 +44,8 @@ Notes:
 | `test_bank_tools.py` | The mock bank tools in `bank.py`, called directly. |
 | `test_agents_flow.py` | End-to-end conversations through `BankAssistApp`, plus policy checks over every scripted scenario. |
 | `test_policy_gaps.py` | The policies Phase 1 leaves unenforced (P5/P6, P8/P9): expected failures plus tests that record what Phase 1 does today. |
-| `test_llm_fallback.py` | The optional LLM Concierge against a fake OpenAI-compatible server, and the fallback to rules. |
+| `test_llm_fallback.py` | The optional LLM Concierge against a fake OpenAI-compatible server, the fallback to rules, and the LLM-related regression tests. |
+| `test_regressions.py` | Regression tests for the bugs found by the first version of this suite (one class per fix). |
 | `test_traces.py` | `run_scenarios` output (traces, episodes, README, viewer) and the `Tracer` class. |
 
 ## Test cases
@@ -199,20 +200,73 @@ A fake OpenAI-compatible server (`POST /v1/chat/completions`) runs on
 | `LLMConciergeTest.test_json_wrapped_in_prose_is_accepted` | JSON inside a code fence or extra text is still used. | – |
 | `LLMConciergeTest.test_extra_llm_fields_are_dropped` | Extra keys from the LLM (`session_token`, `pin`) are dropped from the parsed request. | P2, P12 |
 | `LLMConciergeTest.test_llm_transfer_still_reviewed_by_risk_agent` | A transfer understood by the LLM still goes to RiskAgent and needs YES. | P8, P9 |
-| `LLMFallbackTest.test_garbage_http_body` | A non-JSON HTTP body falls back to rules, with a fallback thought in the trace. | – |
+| `LLMFallbackTest.test_garbage_http_body` | A non-JSON HTTP body falls back to rules. | – |
 | `LLMFallbackTest.test_http_error_status` | HTTP 500 falls back to rules. | – |
 | `LLMFallbackTest.test_response_missing_choices` | JSON with no `choices` falls back to rules. | – |
-| `LLMFallbackTest.test_content_that_is_not_json` | A prose answer silently falls back to rules. | – |
-| `LLMFallbackTest.test_content_with_broken_json` | Malformed JSON falls back, with a fallback thought. | – |
-| `LLMFallbackTest.test_truncated_json` | A JSON fragment with no closing brace silently falls back. | – |
+| `LLMFallbackTest.test_content_that_is_not_json` | A prose answer falls back to rules. | – |
+| `LLMFallbackTest.test_content_with_broken_json` | Malformed JSON (`json.loads` raises) falls back to rules. | – |
+| `LLMFallbackTest.test_truncated_json` | A JSON fragment with no closing brace falls back to rules. | – |
 | `LLMFallbackTest.test_json_without_intent` | JSON without `intent` falls back to rules. | – |
 | `LLMFallbackTest.test_unreachable_url` | A closed port falls back to rules and still answers correctly. | – |
 | `LLMFallbackTest.test_chat_raises_llm_unavailable` | `llm.chat` turns a connection error into `LLMUnavailable`. | – |
+| `LLMRegressionTest.test_string_false_skip_review_does_not_take_express_path` | The LLM returns `{"intent": "transfer", "to_account": "ACC-2001", "amount": "50", "skip_review": "false"}`. `skip_review` is parsed as `False` and the amount as `50.0`. RiskAgent is consulted (no express path), and the transfer completes with a used approval. | P8, P9 |
+| `LLMRegressionTest.test_string_amount_with_symbols_is_converted` | An amount of `"$1,200.50"` becomes 1200.50, and a lower-case account ID is upper-cased. | P9 |
+| `LLMRegressionTest.test_garbage_amount_asks_for_amount` | An amount of `"lots"` is dropped, so the customer is asked for the amount and RiskAgent is not contacted. | – |
+| `LLMRegressionTest.test_llm_own_account_transfer_by_type` | `from_type`/`to_type` from the LLM (any case) resolve to ACC-1001 → ACC-1002. | – |
+| `LLMRegressionTest.test_null_content_raises_llm_unavailable` | `llm.chat` raises `LLMUnavailable` when `message.content` is `null`, a number, an object or a list. | – |
+| `LLMRegressionTest.test_null_content_falls_back_to_rules` | With `null` content, the conversation falls back to rules and still answers correctly. | – |
+| `LLMRegressionTest.test_unhashable_intent_falls_back_to_rules` | A list or object as `intent` falls back to rules and does not crash the turn. | – |
 | `NoLLMConfiguredTest.test_rules_mode_without_env` | With no env vars: mode `rules`, and `chat` raises `LLMUnavailable`. | – |
 | `NoLLMConfiguredTest.test_model_without_base_url_is_not_enough` | The model name alone does not turn the LLM on. | – |
 
 In every fallback test, the reply to "What's my checking balance?" must still
-be exactly `The balance of checking account ACC-1001 is $2,450.00.`
+be exactly `The balance of checking account ACC-1001 is $2,450.00.`, and the
+trace must contain exactly one Concierge thought saying it is "falling back to
+rule parser".
+
+### `test_regressions.py`
+
+Each class guards one bug found by the first version of this suite. All of
+these tests failed against the code before the fixes (the guard tests marked
+"guard" below check behaviour that was already correct and must stay that way).
+
+| Class / test | What it checks | Policy |
+|---|---|---|
+| `EmptyAmountRegressionTest.test_rule_parse_dollar_comma_gives_no_amount` | `rule_parse("send $, to ACC-2001")` no longer crashes: amount `None`, destination kept. | – |
+| `EmptyAmountRegressionTest.test_other_degenerate_amounts` | `$`, `$,,,` and `, dollars` also give amount `None`. | – |
+| `EmptyAmountRegressionTest.test_chat_asks_for_amount_instead_of_crashing` | `app.chat` replies "Please tell me the amount and the destination account…" and never reaches RiskAgent. | – |
+| `NormalizeRequestTest.test_non_dict_is_rejected` | `normalize_request` returns `None` for `None`, lists, strings, numbers and bools. | – |
+| `NormalizeRequestTest.test_missing_or_unknown_intent_is_rejected` | Returns `None` for a missing, `None`, unknown, wrong-case or non-string intent. | – |
+| `NormalizeRequestTest.test_every_known_intent_is_accepted` | All 7 documented intents are accepted. | – |
+| `NormalizeRequestTest.test_output_has_rule_parse_shape` | Output has exactly the `rule_parse` keys; extra keys (`pin`, `session_token`) are dropped. | P2, P12 |
+| `NormalizeRequestTest.test_skip_review_only_true_for_true_or_string_true` | `skip_review` is `True` only for `True` or the string `"true"` (any case or spacing). `"false"`, `"False"`, `1`, `"yes"`, `""`, `None` and others give `False`. | P8 |
+| `NormalizeRequestTest.test_amount_strings_are_converted` | `"50"`, `"$1,200.50"`, `" 75 "`, `75` and `12.5` become floats. | – |
+| `NormalizeRequestTest.test_bad_amounts_become_none` | Garbage, empty, zero, negative, bool, list and dict amounts become `None`. | P10 |
+| `NormalizeRequestTest.test_account_ids_are_validated_and_upper_cased` | Valid IDs are trimmed and upper-cased. | – |
+| `NormalizeRequestTest.test_malformed_account_ids_are_dropped` | `ACC-12`, `ACC1001`, `acc-1001x`, `XYZ-1001`, injected text and non-strings are dropped. | – |
+| `NormalizeRequestTest.test_account_types_lowercased_and_validated` | `Checking` / ` SAVINGS ` are lower-cased; unknown types are dropped. | – |
+| `ConfirmDeclinePhrasesTest.test_parse_confirm_phrases` | "yes please", "Yes, please", "sure", "yep", "yeah", "do it", "ok thanks", "yes thank you" mean confirm. | P9 |
+| `ConfirmDeclinePhrasesTest.test_parse_decline_phrases` | "no thanks", "No, thank you", "nope", "cancel it", "dont" mean decline. | P9 |
+| `ConfirmDeclinePhrasesTest.test_phrases_inside_a_real_request_are_not_confirmations` | "sure, send $5 …" is a transfer and "no thanks, what's my balance?" is a balance request (guard). | P9 |
+| `ConfirmDeclinePhrasesTest.test_pending_transfer_confirmed_with_yes_please` | A pending $1,500 transfer confirmed with "yes please" completes. | P9, P14 |
+| `ConfirmDeclinePhrasesTest.test_pending_transfer_cancelled_with_no_thanks` | "no thanks" cancels: no money moves, and RiskAgent has nothing pending. | P9, P14 |
+| `OwnAccountTransferTest.test_parse_to_type` | "Move $300 from checking to savings" gives `from_type=checking`, `to_type=savings`, no `to_account`; real IDs still go to `to_account`. | – |
+| `OwnAccountTransferTest.test_check_payee_treats_own_account_as_known` | `check_payee` returns `known_payee=True` for the customer's own accounts, and still `False` for other people's unsaved accounts. | P9 |
+| `OwnAccountTransferTest.test_checking_to_savings_is_auto_approved` | For C001, ACC-1001 → ACC-1002 for $300: RiskAgent gets exactly the P11 fields, approves without confirmation, and the money moves. | P7, P8, P9, P11 |
+| `OwnAccountTransferTest.test_exactly_one_thousand_is_still_auto_approved` | $1,000.00 between own accounts needs no confirmation (boundary). | P9 |
+| `OwnAccountTransferTest.test_above_one_thousand_still_needs_confirmation` | $1,000.01 between own accounts needs YES, only because of the amount. | P9 |
+| `OwnAccountTransferTest.test_source_defaults_to_the_other_account_type` | "move $50 to checking" comes from savings, and "to my savings" comes from checking. | – |
+| `OwnAccountTransferTest.test_missing_own_account_type` | Bob has no savings account: a polite error, and RiskAgent is not contacted. | – |
+| `PendingCancelledOnNewRequestTest.test_new_request_tells_risk_agent_to_cancel` | A new request while a transfer is pending sends RiskAgent `confirm_transfer` with `customer_confirmed: False`. The ref leaves `RiskAgent.pending`, and a late YES does nothing. | P9 |
+| `PendingCancelledOnNewRequestTest.test_cancel_happens_before_new_transfer_is_assessed` | Message order is assess → cancel → assess; only the new ref is pending, and confirming it completes. | P9 |
+| `ExpiredSessionRenewalTest.test_balance_after_expiry_reauthenticates` | After forcing expiry (`issued_at -= 10_000`), a balance request still succeeds. The trace shows a second `authenticate`, one refused and one retried `get_balance`, and two `login_success` audit entries. | P1, P13 |
+| `ExpiredSessionRenewalTest.test_pin_still_masked_after_renewal` | After the renewal, the PIN is still `****` everywhere in the trace and audit log, and only goes Concierge → AuthAgent. | P2, P13 |
+| `ExpiredSessionRenewalTest.test_credentials_not_kept_between_turns` | The Concierge does not keep the PIN after a turn ends. | P2 |
+| `ExpiredSessionRenewalTest.test_confirmation_after_expiry_still_completes` | A YES sent after the session expired still completes the approved transfer. | P1, P14 |
+| `ExpiredSessionRenewalTest.test_expiry_with_wrong_pin_returns_no_data` | If renewal fails (wrong PIN), no data is returned, the failure is counted, and the session is dropped. | P1, P3 |
+| `SameAccountTransferTest.test_same_account_id_refused_without_risk_agent` | "Send $10 from ACC-1001 to ACC-1001" is refused without contacting RiskAgent or moving money. | P10 |
+| `SameAccountTransferTest.test_same_account_type_refused` | "from checking to checking" is refused the same way. | P10 |
+| `SameAccountTransferTest.test_same_account_with_skip_review_also_refused` | The same-account check also runs before the skip-review shortcut. | P8 |
 
 ### `test_traces.py`
 
