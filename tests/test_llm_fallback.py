@@ -203,14 +203,14 @@ class LLMFallbackTest(LLMTestBase):
     TEXT = "What's my checking balance?"
     EXPECTED = "The balance of checking account ACC-1001 is $2,450.00."
 
-    def assertFellBackToRules(self, app, *, expect_thought: bool = True):
+    def assertFellBackToRules(self, app):
         reply = app.chat(ALICE, ALICE_PIN, self.TEXT)
         self.assertEqual(reply, self.EXPECTED)
         acts, obs = self.parse_events(app.tracer)
         self.assertEqual(acts[0]["args"]["mode"], "llm")
         self.assertEqual(obs[0]["result"]["intent"], "check_balance")
-        if expect_thought:
-            self.assertEqual(len(self.fallback_thoughts(app.tracer)), 1)
+        # every fallback is recorded in the trace as a Concierge thought
+        self.assertEqual(len(self.fallback_thoughts(app.tracer)), 1)
         return reply
 
     def test_garbage_http_body(self):
@@ -226,9 +226,9 @@ class LLMFallbackTest(LLMTestBase):
         self.assertFellBackToRules(H.new_app())
 
     def test_content_that_is_not_json(self):
-        # chat() succeeds, but the model answered in prose: silently use the rules
+        # chat() succeeds, but the model answered in prose
         self.reply_with("I'm sorry, I can't help with banking questions.")
-        self.assertFellBackToRules(H.new_app(), expect_thought=False)
+        self.assertFellBackToRules(H.new_app())
 
     def test_content_with_broken_json(self):
         # braces are present, so json.loads runs and raises ValueError
@@ -236,13 +236,13 @@ class LLMFallbackTest(LLMTestBase):
         self.assertFellBackToRules(H.new_app())
 
     def test_truncated_json(self):
-        # no closing brace: nothing to parse, rules are used without a warning
+        # no closing brace: there is no JSON object to parse
         self.reply_with('{"intent": "check_balance", ')
-        self.assertFellBackToRules(H.new_app(), expect_thought=False)
+        self.assertFellBackToRules(H.new_app())
 
     def test_json_without_intent(self):
         self.reply_with(json.dumps({"account_type": "savings"}))
-        self.assertFellBackToRules(H.new_app(), expect_thought=False)
+        self.assertFellBackToRules(H.new_app())
 
     def test_unreachable_url(self):
         self.use_llm(f"http://127.0.0.1:{_closed_port()}/v1")
@@ -255,6 +255,77 @@ class LLMFallbackTest(LLMTestBase):
         self.use_llm(f"http://127.0.0.1:{_closed_port()}/v1")
         with self.assertRaises(llm.LLMUnavailable):
             llm.chat("system", "user", timeout=5)
+
+
+# ===================================================================== regressions
+class LLMRegressionTest(LLMTestBase):
+    """Bugs found in the first round of testing; each must stay fixed."""
+
+    BALANCE_TEXT = "What's my checking balance?"
+    BALANCE_REPLY = "The balance of checking account ACC-1001 is $2,450.00."
+
+    def test_string_false_skip_review_does_not_take_express_path(self):  # P8, P9
+        self.reply_with(json.dumps({"intent": "transfer", "to_account": "ACC-2001",
+                                    "amount": "50", "skip_review": "false"}))
+        app = H.new_app()
+        reply = app.chat(ALICE, ALICE_PIN, "pay Bob fifty bucks")
+        self.assertTrue(reply.startswith("Done. Sent $50.00 from ACC-1001 to ACC-2001"), reply)
+        _, obs = self.parse_events(app.tracer)
+        self.assertIs(obs[0]["result"]["skip_review"], False)
+        self.assertEqual(obs[0]["result"]["amount"], 50.0)
+        # RiskAgent was consulted and its approval was used
+        [assess] = H.messages(app.tracer, to="RiskAgent", performative="assess_transfer")
+        self.assertEqual(assess["payload"]["amount"], 50.0)
+        [execute] = H.messages(app.tracer, to="AccountAgent", performative="execute_transfer")
+        aid = execute["payload"]["approval_id"]
+        self.assertIsNotNone(aid)
+        self.assertTrue(app.bank.approvals[aid]["used"])
+        self.assertFalse(any("express path" in e["content"]
+                             for e in H.events(app.tracer, "thought", "ConciergeAgent")))
+        self.assertEqual(app.bank.accounts["ACC-1001"]["balance"], 2400.00)
+
+    def test_string_amount_with_symbols_is_converted(self):
+        self.reply_with(json.dumps({"intent": "transfer", "to_account": "acc-2001",
+                                    "amount": "$1,200.50"}))
+        app = H.new_app()
+        reply = app.chat(ALICE, ALICE_PIN, "send Bob twelve hundred and fifty cents")
+        self.assertIn("Please confirm: send $1,200.50 from ACC-1001 to ACC-2001", reply)
+
+    def test_garbage_amount_asks_for_amount(self):
+        self.reply_with(json.dumps({"intent": "transfer", "to_account": "ACC-2001", "amount": "lots"}))
+        app = H.new_app()
+        reply = app.chat(ALICE, ALICE_PIN, "send Bob lots")
+        self.assertTrue(reply.startswith("Please tell me the amount"), reply)
+        self.assertEqual(H.messages(app.tracer, to="RiskAgent"), [])
+
+    def test_llm_own_account_transfer_by_type(self):
+        self.reply_with(json.dumps({"intent": "transfer", "from_type": "Checking",
+                                    "to_type": "SAVINGS", "amount": 300}))
+        app = H.new_app()
+        reply = app.chat(ALICE, ALICE_PIN, "put three hundred into my rainy-day pot")
+        self.assertTrue(reply.startswith("Done. Sent $300.00 from ACC-1001 to ACC-1002"), reply)
+
+    def test_null_content_raises_llm_unavailable(self):
+        for content in (None, 42, {"intent": "help"}, ["help"]):
+            with self.subTest(content=content):
+                self.server.respond = lambda c=content: _completion(c)
+                with self.assertRaises(llm.LLMUnavailable):
+                    llm.chat("system", "user", timeout=5)
+
+    def test_null_content_falls_back_to_rules(self):
+        self.reply_with(None)
+        app = H.new_app()
+        self.assertEqual(app.chat(ALICE, ALICE_PIN, self.BALANCE_TEXT), self.BALANCE_REPLY)
+        self.assertEqual(len(self.fallback_thoughts(app.tracer)), 1)
+        self.assertEqual(len(self.server.requests), 1)
+
+    def test_unhashable_intent_falls_back_to_rules(self):
+        for intent in (["check_balance"], {"name": "check_balance"}):
+            with self.subTest(intent=intent):
+                self.reply_with(json.dumps({"intent": intent}))
+                app = H.new_app()
+                self.assertEqual(app.chat(ALICE, ALICE_PIN, self.BALANCE_TEXT), self.BALANCE_REPLY)
+                self.assertEqual(len(self.fallback_thoughts(app.tracer)), 1)
 
 
 class NoLLMConfiguredTest(_path.RulesOnlyTestCase, unittest.TestCase):
