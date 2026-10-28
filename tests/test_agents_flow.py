@@ -364,5 +364,62 @@ class ScenarioPolicyTest(_path.RulesOnlyTestCase, unittest.TestCase):
                     self.assertTrue(t["assistant"])
 
 
+
+class AgentThoughtsTest(_path.RulesOnlyTestCase, unittest.TestCase):
+    """The agents explain their decisions in the trace (plan / check-list thoughts)."""
+
+    @classmethod
+    def setUpClass(cls):
+        with _path.rules_only_env():
+            cls.runs = [(sc, run_scenario(sc)[0]) for sc in SCENARIOS]
+
+    def test_concierge_plans_right_after_parsing(self):
+        for sc, tracer in self.runs:
+            ev = tracer.events
+            for i, e in enumerate(ev):
+                if e["kind"] == "observation" and e["tool"] == "parse_request":
+                    with self.subTest(scenario=sc["id"], step=e["step"]):
+                        nxt = ev[i + 1]
+                        self.assertEqual((nxt["kind"], nxt["agent"]), ("thought", "ConciergeAgent"))
+                        self.assertTrue(nxt["content"].startswith("The customer "), nxt["content"])
+
+    def test_risk_agent_writes_a_check_list_before_deciding(self):
+        seen = 0
+        for sc, tracer in self.runs:
+            ev, start = tracer.events, None
+            for i, e in enumerate(ev):
+                if e["kind"] == "message" and e["performative"] == "assess_transfer":
+                    start = i
+                elif e["kind"] == "message" and e["performative"] == "reply:assess_transfer":
+                    inside = ev[start + 1:i]
+                    thoughts = [x for x in inside if x["kind"] == "thought" and x["agent"] == "RiskAgent"]
+                    with self.subTest(scenario=sc["id"], step=e["step"]):
+                        self.assertGreaterEqual(len(thoughts), 2)
+                        checklist = thoughts[0]["content"]
+                        req = ev[start]["payload"]
+                        self.assertTrue(checklist.startswith(f"Reviewing ${req['amount']:,.2f} "
+                                                             f"{req['from_account']} -> {req['to_account']} "
+                                                             f"for {req['customer_id']}."), checklist)
+                        self.assertIn("Single-transfer limit", checklist)
+                        self.assertIn("24h total", checklist)
+                        # the check list comes after the look-ups and before any decision tool call
+                        pos = inside.index(thoughts[0])
+                        tools_before = [x["tool"] for x in inside[:pos] if x["kind"] == "action"]
+                        tools_after = [x["tool"] for x in inside[pos:] if x["kind"] == "action"]
+                        self.assertEqual(tools_before, ["check_payee", "daily_transfer_total"])
+                        self.assertLessEqual(set(tools_after), {"approve_transfer", "record_audit"})
+                        decision = e["payload"]["decision"]
+                        self.assertEqual("FAILS" in checklist, decision == "deny")
+                        seen += 1
+        self.assertGreater(seen, 0)
+
+    def test_risk_decision_thought_names_the_policy(self):
+        for sc, tracer in self.runs:
+            for e in H.events(tracer, "thought", "RiskAgent"):
+                if e["content"].startswith(("Low risk", "Needs customer confirmation", "Hard limit")):
+                    with self.subTest(scenario=sc["id"], step=e["step"]):
+                        self.assertRegex(e["content"], r"\(P(8|9|10)\)\.$")
+
+
 if __name__ == "__main__":
     unittest.main()

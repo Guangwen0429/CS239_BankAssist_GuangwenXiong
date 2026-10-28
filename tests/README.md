@@ -13,10 +13,10 @@ python3 -m unittest discover -s tests -v      # standard library only
 python3 -m pytest tests -q                    # also works if pytest is installed
 ```
 
-Expected result: 251 tests, all passing, with **14 expected failures** (shown as `x`
-by both runners). All 14 describe policies that Phase 1 does not enforce yet;
-see
-[Expected failures](#expected-failures) below.
+Expected result: 343 tests, all passing, with **14 expected failures** (shown as `x`
+by both runners). 14 describe policies that Phase 1 does not enforce yet, and
+5 describe known false positives or negatives in the offline policy auditor;
+see [Expected failures](#expected-failures) below.
 
 Notes:
 
@@ -53,6 +53,7 @@ Notes:
 | `test_regressions.py` | Regression tests for the fixes from both review rounds (one class per fix). |
 | `test_traces.py` | `run_scenarios` output (traces, episodes, README, viewer), reproducibility of the traces, and the `Tracer` class. |
 | `test_cli.py` | The interactive CLI, run as a subprocess with piped stdin. |
+| `test_policy_audit.py` | The offline policy auditor `policy_audit.py`: real scenarios, one mutation per rule, `summary()`, the command line, the `run_scenarios` consistency guard and the generated outputs. |
 
 ## Test cases
 
@@ -172,6 +173,13 @@ through `run_scenarios.run_scenario`, with one sub-test per scenario):
 | `test_money_moved_only_reported_after_completed` | A "Done. Sent $…" reply only appears in a turn where AccountAgent replied `completed`. | P14 |
 | `test_every_trace_has_inter_agent_messages` | Every trace has messages and all six event kinds. | – |
 | `test_compliant_scenarios_have_expected_outcomes` | Every turn of the compliant scenarios gets a non-empty reply. | – |
+Agents explaining their decisions (class `AgentThoughtsTest`, over every scenario):
+
+| Test | What it checks | Policy |
+|---|---|---|
+| `test_concierge_plans_right_after_parsing` | The event right after every `parse_request` result is a ConciergeAgent plan thought ("The customer …"). | – |
+| `test_risk_agent_writes_a_check_list_before_deciding` | Inside every `assess_transfer`, RiskAgent first looks up `check_payee` and `daily_transfer_total`, then writes a "Reviewing $X FROM -> TO for CUSTOMER." check list (single-transfer limit, 24h total), and only then calls `approve_transfer` / `record_audit`. "FAILS" appears in it exactly when the decision is deny. | P8, P9, P10 |
+| `test_risk_decision_thought_names_the_policy` | RiskAgent's decision thought ends with the policy it applies: (P8), (P9) or (P10). | P8, P9, P10 |
 
 ### `test_policy_gaps.py`
 
@@ -384,6 +392,129 @@ reads the PIN from the piped stdin.
 | `test_eof_at_customer_prompt_exits_cleanly` | Empty stdin at "Customer ID:" exits with code 0 and no traceback. | – |
 | `test_eof_while_chatting_exits_cleanly` | EOF in the middle of a chat exits with code 0 and no traceback. | – |
 | `test_trace_saved_outside_the_repo` | The session trace is saved under the temporary root, and `<repo>/traces/interactive` is unchanged. | – |
+
+### `test_policy_audit.py`
+
+The auditor reads a saved trace (`Tracer.to_dict()`) and returns
+`Finding(policy, step, agent, detail)` for P1–P16 (P17 is not observable in a
+trace). The mutation tests start from a clean trace and change one thing:
+
+- **Real traces**: a deep copy of a clean scripted trace, picked by content (for
+  example "the first clean scenario with an auto-approved transfer").
+- **Synthetic traces**: built with `Synth`, a small builder that writes the same
+  event shapes as the real agents, through the real `Tracer`.
+
+`assertOnly` checks that the reported policies are **exactly** the expected
+set, so no unrelated rule may fire.
+
+Real scenarios (class `ScenarioAuditTest`):
+
+| Test | What it checks | Policy |
+|---|---|---|
+| `test_findings_match_declared_violations` | For every scenario, the policies found equal the scenario's `violated` list (s5 P5+P6, s6 P8+P9, s7 P5+P6, others none). | all |
+| `test_compliant_scenarios_are_clean` | Compliant scenarios have no findings and an empty `violated` list. | all |
+| `test_meta_policy_audit_matches_audit` | `meta["policy_audit"]` written by `run_scenario` equals a fresh `audit()`. | – |
+| `test_every_finding_points_at_a_real_event` | Every finding's step exists, and its agent matches that event's agent. | – |
+| `test_p5_points_at_account_agent_read_or_debit` | P5 sits on an AccountAgent `get_transactions` / `get_balance` / `transfer_funds` action, and the detail names the account. | P5 |
+| `test_p6_points_at_the_following_concierge_response` | P6 sits on the first ConciergeAgent response after the P5 step. | P6 |
+| `test_p8_p9_point_at_transfer_funds` | P8 / P9 sit on the AccountAgent `transfer_funds` action. | P8, P9 |
+| `test_cross_account_read_details` | The cross-account read has one P5, on `get_transactions` of ACC-1001. | P5 |
+| `test_debit_other_customer_details` | The debit-other-customer P5 is on `transfer_funds` from ACC-2001. | P5 |
+| `test_skip_review_details` | Skip-review gives one P8 ("no RiskAgent approval") and one P9, both on the same step. | P8, P9 |
+| `test_committed_traces_agree` | The committed `traces/phase1/*.json` give the same findings as a fresh run (read-only). | – |
+
+Mutations, one rule each (`SyntheticBaselineTest` checks that the untouched base traces are clean):
+
+| Class / test | Mutation | Expected |
+|---|---|---|
+| `SyntheticBaselineTest.test_clean_synthetic_trace_has_no_findings` | none (login, balance, confirmed $1,500 transfer) | no findings |
+| `SyntheticBaselineTest.test_real_base_traces_are_clean` | none (each real base trace) | no findings |
+| `MutationP1Test.test_auth_events_removed` | Delete the authenticate request…reply from a real trace. | P1 at the first AccountAgent/RiskAgent request |
+| `MutationP1Test.test_tiny_trace_without_login` | Balance request with no login at all. | P1 |
+| `MutationP1Test.test_request_after_only_a_failed_login` | Balance request after a failed login. | P1 |
+| `MutationP1Test.test_risk_request_before_login` | `assess_transfer` with no login. | P1 |
+| `MutationP2Test.test_unmasked_pin_in_non_authenticate_message` | `"pin": "1234"` added to a `get_balance` request. | P2 at that message |
+| `MutationP2Test.test_unmasked_pin_in_reply_payload` | `"pin": "1234"` in AccountAgent's reply. | P2 |
+| `MutationP2Test.test_unmasked_pin_in_tool_args` | `"pin": "1234"` in `get_balance` args. | P2 |
+| `MutationP2Test.test_masked_pin_field_outside_login_is_flagged` | `"pin": "****"` added to a `get_balance` request (the tracer masks every PIN, so this still means a PIN was sent there). | P2 |
+| `MutationP2Test.test_masked_pin_in_login_flow_is_fine` | The masked PIN in the `authenticate` message is allowed. | no findings |
+| `MutationP2Test.test_customer_pin_in_response` | "(your PIN is 1234)" appended to a response. | P2 at that response |
+| `MutationP2Test.test_customer_pin_in_thought` | PIN appended to an AccountAgent thought. | P2 |
+| `MutationP2Test.test_customer_pin_in_later_user_message` | PIN in the second user message. | P2 |
+| `MutationP2Test.test_dollar_amount_in_response_is_not_a_pin` | "$1234" and "$1,234.00" in a response. | no findings |
+| `MutationP3Test.test_issue_session_for_a_different_customer` | `issue_session` for C002 after verifying C001. | P3 at `issue_session` |
+| `MutationP3Test.test_issue_session_without_any_verify` | `issue_session` with no `verify_identity` before it. | P3 |
+| `MutationP3Test.test_issue_session_after_failed_verify` | `issue_session` right after a failed verify. | P3 |
+| `MutationP3Test.test_verified_after_three_consecutive_failures` | The 4th login of the lockout trace changed to `verified: true`. | P3 at that observation |
+| `MutationP3Test.test_two_failures_then_success_is_fine` | Two failures, then a success. | no findings |
+| `MutationP4P7Test.test_concierge_calls_get_balance` | ConciergeAgent calls `get_balance` itself (after AccountAgent's session). | P4 |
+| `MutationP4P7Test.test_concierge_tool_call_without_any_session` | The same, with no AccountAgent session at all. | P4, P5, P6 |
+| `MutationP4P7Test.test_auth_agent_calls_resolve_session` | `resolve_session` relabelled as an AuthAgent call. | P4 |
+| `MutationP4P7Test.test_transfer_funds_by_risk_agent` | `transfer_funds` done by RiskAgent. | P4 + P7, same step |
+| `MutationP4P7Test.test_transfer_funds_outside_execute_transfer` | AccountAgent moves money while handling `get_balance`. | P7 |
+| `MutationP8Test.test_approval_id_null` | `approval_id: null`. | P8 ("no RiskAgent approval") |
+| `MutationP8Test.test_unknown_approval_id` | `approval_id: "APR-9999"`. | P8 ("never issued") |
+| `MutationP8Test.test_mismatched_amount` | Amount changed after approval. | P8 ("different transfer") |
+| `MutationP8Test.test_mismatched_destination` | Approved to ACC-2001, executed to ACC-1002. | P8 |
+| `MutationP8Test.test_reused_approval` | `transfer_funds` repeated with the same approval. | exactly one P8 ("used twice") |
+| `MutationP9P10Test.test_large_transfer_approved_by_assess_instead_of_confirm` | $1,500 approved directly by `assess_transfer`. | P9 |
+| `MutationP9P10Test.test_real_confirmed_trace_relabelled_as_assess` | The real `confirm_transfer` request relabelled `assess_transfer`. | P9 |
+| `MutationP9P10Test.test_small_transfer_to_unknown_payee_without_yes` | $10 to a non-saved payee, no YES. | P9 |
+| `MutationP9P10Test.test_external_transfer_without_yes` | $10 to EXT-9001, no YES. | P9 |
+| `MutationP9P10Test.test_small_transfer_to_own_account_needs_no_yes` | $300 to the customer's own savings, no YES. | no findings |
+| `MutationP9P10Test.test_single_transfer_over_limit` | Confirmed transfer changed to $6,000 (approval too). | P10 at the `transfer_funds` result |
+| `MutationP9P10Test.test_failed_transfer_over_limit_is_not_flagged` | $6,000 transfer that failed. | no findings |
+| `MutationP9P10Test.test_cumulative_over_daily_limit` | Three confirmed $4,000 transfers from one account. | exactly one P10 ("24h"), on the third |
+| `MutationP11ToP16Test.test_extra_field_in_risk_request` | `session_token` added to `assess_transfer`. | P11 |
+| `MutationP11ToP16Test.test_session_token_in_response` | "sess_abc123" in a response. | P12 |
+| `MutationP11ToP16Test.test_error_code_in_response` | "insufficient_funds" in a response. | P12 |
+| `MutationP11ToP16Test.test_approval_id_in_response` | "APR-0001" in a response. | P12 |
+| `MutationP11ToP16Test.test_login_not_audited` | `record_audit` after `verify_identity` removed. | P13 (AuthAgent, "login attempt") |
+| `MutationP11ToP16Test.test_failed_login_not_audited` | Failed login without an audit entry. | P13 |
+| `MutationP11ToP16Test.test_read_not_audited` | `record_audit` after `get_balance` removed. | P13 (AccountAgent) |
+| `MutationP11ToP16Test.test_transfer_not_audited` | `record_audit` after `transfer_funds` removed. | P13 |
+| `MutationP11ToP16Test.test_risk_deny_not_audited` | RiskAgent's `transfer_denied` audit removed. | P13 (RiskAgent) |
+| `MutationP11ToP16Test.test_sent_without_completed_transfer` | Balance reply replaced by "Done. Sent $50.00 …". | P14 |
+| `MutationP11ToP16Test.test_sent_after_denied_transfer` | Denial reply replaced by "Done. Sent $6,000.00 …". | P14 |
+| `MutationP11ToP16Test.test_sent_after_failed_transfer` | "Done. Sent …" after a failed `execute_transfer`. | P14 |
+| `MutationP11ToP16Test.test_account_agent_sends_request_to_risk_agent` | AccountAgent sends `assess_transfer` to RiskAgent. | P15 |
+| `MutationP11ToP16Test.test_unknown_performative` | `get_balance` request renamed `dump_all_accounts`. | P15 |
+| `MutationP11ToP16Test.test_validate_session_request_to_auth` | `validate_session` sent to AuthAgent. | P15 |
+| `MutationP11ToP16Test.test_auth_reply_with_extra_key` | `risk_score` added to AuthAgent's reply. | P16 |
+
+Summary, command line, guard and outputs:
+
+| Class / test | What it checks |
+|---|---|
+| `SummaryTest.test_all_ok` | `summary([])` maps P1..P17 in order: `ok`, and P17 `not observable`. |
+| `SummaryTest.test_violated` | Listed policies (duplicates allowed) become `violated`; the rest stay `ok`. |
+| `SummaryTest.test_accepts_any_iterable` | A generator of policy IDs works. |
+| `SummaryTest.test_p17_stays_not_observable` | P17 is `not observable` unless explicitly listed. |
+| `AuditCLITest.test_clean_traces_exit_0` | `main()` on the clean traces returns 0 and prints "no violations" for each. |
+| `AuditCLITest.test_violating_trace_exits_1` | Each violating trace returns 1 and prints "P# at step N (Agent): …". |
+| `AuditCLITest.test_mixed_exits_1` | One bad file among clean ones gives 1. |
+| `AuditCLITest.test_json_output_parses` | `--json` prints `{path: [ {policy, step, agent, detail} ]}` that matches each scenario's `violated` list. |
+| `AuditCLITest.test_json_clean_exit_0` | `--json` on a clean trace gives `{path: []}` and 0. |
+| `AuditCLITest.test_subprocess_exit_codes` | `python3 -m bankassist.policy_audit` (cwd `src`) exits 0 / 1 and `--json` stdout parses. |
+| `AuditCLITest.test_tampered_file` | A saved trace edited to show a session token exits 1 with P12. |
+| `RunScenariosGuardTest.test_wrong_declared_list_raises` | For every scenario, a wrong `violated` list (patched with `mock.patch.dict`) makes `run_scenario` raise `SystemExit` naming the scenario. |
+| `RunScenariosGuardTest.test_order_of_declared_list_does_not_matter` | A reordered list is accepted. |
+| `RunScenariosGuardTest.test_main_stops_on_mismatch` | `run_scenarios.main` stops with `SystemExit` on a mismatch. |
+| `AuditOutputsTest.test_viewer_has_flag_css_hook` | `viewer.html` defines `.ev.flag` and adds the `flag` class to flagged events. |
+| `AuditOutputsTest.test_viewer_embeds_policy_audit_data` | `viewer.html` carries `policy_audit` with every violated policy. |
+| `AuditOutputsTest.test_json_traces_store_findings` | Each written JSON trace has `meta.policy_audit` matching `violated`. |
+| `AuditOutputsTest.test_episodes_have_audit_section` | Each episode has "## Offline Policy Audit" naming the violated policies, or "no violations". |
+| `AuditOutputsTest.test_readme_has_matrix` | `traces/README.md` has the "Auditor: violated at step" column and a row for each of P1..P17. |
+
+Auditor edge cases (class `AuditorEdgeCasesTest`; the first version of the auditor got these wrong, now regression tests):
+
+| Test | What the auditor does | Earlier bug |
+|---|---|---|
+| `test_amount_equal_to_pin_is_not_a_leak` | Does not report P2 when a later message says "Send $1234 …" (an amount, deliberately left unmasked). | false positive |
+| `test_pin_in_first_message_is_flagged` | Reports P2 when the PIN leaks in the first message of a conversation. | false negative |
+| `test_unmasked_pin_in_saved_authenticate_message_is_flagged` | Reports P2 when the saved `authenticate` message or `verify_identity` args show the PIN unmasked. | false negative |
+| `test_unmasked_pin_in_tool_result_is_flagged` | Reports P2 when a tool result contains an unmasked `pin` field. | false negative |
+| `test_request_after_failed_login_in_later_conversation` | Reports P1 when a request is sent in a conversation whose login failed, even though someone logged in earlier in the trace. | false negative |
 
 ## Expected failures
 
