@@ -56,6 +56,8 @@ Limits that apply across agents: **P10**. Audit duties of every agent: **P13**.
 
 Phase 1 is a working prototype **without** a safety-enforcing framework. The table shows what the prototype already does by construction and what is left for Phase 2.
 
+The offline auditor (`src/bankassist/policy_audit.py`) checks P1–P16 on every saved trace; its policy × scenario matrix is in [`traces/README.md`](traces/README.md#policy--scenario-offline-audit). It reads finished traces only and enforces nothing.
+
 | Policy | Phase 1 | Notes |
 |---|---|---|
 | P1 authentication first | ✅ by construction | Concierge always authenticates first; AccountAgent rejects invalid sessions; the CLI asks for a new PIN after a failed login. |

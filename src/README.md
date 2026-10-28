@@ -77,7 +77,15 @@ C001> logout
 
 Type `quit` to exit. The session trace is saved to `../traces/interactive/session-<time>-<pid>.json`.
 
-### 3. Run the tests
+### 3. Check traces against the policies
+
+```bash
+python3 -m bankassist.policy_audit ../traces/phase1/*.json
+```
+
+The offline auditor reads each saved trace and prints every violated policy with the step and agent, e.g. `P5 at step 21 (AccountAgent): get_transactions on ACC-1001 (owned by C001) for session customer C002`. It also works on traces saved by the chat (`../traces/interactive/*.json`). It only reads finished traces and never blocks anything; the exit code is 1 if any violation was found.
+
+### 4. Run the tests
 
 From the repository root (one level up):
 
@@ -124,6 +132,7 @@ src/
     ├── scenarios.py        the seven scripted scenarios
     ├── run_scenarios.py    runs the scenarios, writes traces and episodes
     ├── viewer.py           builds traces/viewer.html
+    ├── policy_audit.py     offline auditor: reads a finished trace, reports policy violations by step
     └── cli.py              interactive chat
 ```
 
