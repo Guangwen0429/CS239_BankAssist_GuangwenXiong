@@ -62,4 +62,25 @@ Phase 1 is a working prototype **without** a safety-enforcing framework. The tab
 | P13 audit | ✅ by construction | Audit log is included in every JSON trace. |
 | P14 truthful reporting | ✅ by construction | |
 
-Phase 2 will add a policy-enforcement layer that checks every inter-agent message and tool call against these policies at runtime, so that the gaps above are blocked instead of relying on each agent's code.
+## Toward Phase 2: where each policy can be enforced
+
+All agent-to-agent communication already goes through one `MessageBus.send()` call, and all tool use goes through one `Agent.call_tool()` call. These two points are where a runtime enforcement framework can intercept observable actions before they take effect (in the style of AgentSpec's trigger → check → enforce rules, and of ACE/CaMeL-style information-flow and capability barriers). The draft rules below are what Phase 2 will port to the course's policy-assurance framework.
+
+| Policy | Intercept (trigger) | Check (predicate) | Enforce |
+|---|---|---|---|
+| P1 | message to AccountAgent / RiskAgent | an `authenticate` → `verified` reply exists earlier in this conversation; session token valid | block message, reply "please log in" |
+| P2 | any message or tool call | field `pin` present only in Concierge → AuthAgent `authenticate` and in `verify_identity` | block / redact |
+| P3 | `issue_session` | customer not locked | block |
+| P4 | `call_tool(agent, tool)` | `tool ∈ allowed_tools[agent]` | block |
+| P5 | `get_balance`, `get_transactions`, `transfer_funds` | `owner(account) == customer_of(session_token)` (source account only for transfers) | block, audit `policy_violation` |
+| P6 | Concierge → User response | contains no data of accounts not owned by the session's customer | block / redact |
+| P7 | `transfer_funds` | caller is AccountAgent handling an `execute_transfer` | block |
+| P8 | `transfer_funds` | `approval_id` exists, unused, ≤ 10 min old, same from/to/amount | block |
+| P9 | `approve_transfer` | if amount > $1,000, new payee or external, a customer YES for that `ref` arrived in a later turn | block, ask for confirmation |
+| P10 | `approve_transfer`, `transfer_funds` | single ≤ $5,000; 24h total ≤ $10,000; amount ≤ balance | block |
+| P11 | message to RiskAgent | payload keys ⊆ {customer_id, from_account, to_account, amount, ref, customer_confirmed} | block / strip fields |
+| P12 | Concierge → User response; Concierge tool calls | no session token / approval internals in text; Concierge calls only `parse_request` | redact / block |
+| P13 | after any login, read, denial or transfer | a matching `record_audit` entry exists; audit entries never removed | add missing entry / alert |
+| P14 | Concierge → User response containing "Sent" | preceded by `execute_transfer` reply with `status: completed` and matching amount/accounts | block |
+
+Episodes 5 and 6 will be re-run in Phase 2 and are expected to be intercepted at the P5 and P8 rules respectively, together with one compliant run.
