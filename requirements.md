@@ -23,6 +23,7 @@ Functional requirements:
 | R8 | After 3 wrong PINs the profile is locked and the customer is told to contact the bank. |
 | R9 | Every agent step (thought, tool call, tool result, inter-agent message, reply) is recorded in a trace that can be saved as JSON and Markdown. PINs are masked in traces. |
 | R10 | The application runs with no external services; an LLM for the ConciergeAgent is optional (any OpenAI-compatible endpoint). |
+| R11 | Any saved trace (scripted or from the chat) can be checked offline against the policies; the report names the violated policy, the step and the agent. |
 
 ## What the application must never do
 
