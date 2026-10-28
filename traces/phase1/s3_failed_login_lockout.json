@@ -1,0 +1,492 @@
+{
+  "scenario_id": "s3_failed_login_lockout",
+  "title": "Wrong PIN three times locks the profile",
+  "description": "Someone who does not know Alice's PIN tries three times, then tries the correct PIN.",
+  "started_at": "2026-10-28T07:20:47.554+00:00",
+  "meta": {
+    "concierge_mode": "rules",
+    "policies": "P1, P2, P3, P13",
+    "expected": "No account data is returned for the wrong PINs; after the third failure the profile is locked and even the correct PIN is refused.",
+    "phase1_result": "As expected. No policy violated.",
+    "audit_log": [
+      {
+        "seq": 1,
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "wrong_pin"
+        }
+      },
+      {
+        "seq": 2,
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "wrong_pin"
+        }
+      },
+      {
+        "seq": 3,
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "locked"
+        }
+      },
+      {
+        "seq": 4,
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "locked"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "step": 1,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "What's my balance?"
+    },
+    {
+      "step": 2,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 3,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 4,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C001."
+    },
+    {
+      "step": 5,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 6,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": false,
+        "reason": "wrong_pin",
+        "attempts_left": 2
+      }
+    },
+    {
+      "step": 7,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "wrong_pin"
+        }
+      }
+    },
+    {
+      "step": 8,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 1
+      }
+    },
+    {
+      "step": 9,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verification failed (wrong_pin)."
+    },
+    {
+      "step": 10,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "failed",
+        "reason": "wrong_pin",
+        "attempts_left": 2
+      }
+    },
+    {
+      "step": 11,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "Sorry, I couldn't verify your identity, so I can't help with account requests. 2 attempt(s) left before the profile is locked."
+    },
+    {
+      "step": 12,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "What's my balance?"
+    },
+    {
+      "step": 13,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 14,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 15,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C001."
+    },
+    {
+      "step": 16,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 17,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": false,
+        "reason": "wrong_pin",
+        "attempts_left": 1
+      }
+    },
+    {
+      "step": 18,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "wrong_pin"
+        }
+      }
+    },
+    {
+      "step": 19,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 2
+      }
+    },
+    {
+      "step": 20,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verification failed (wrong_pin)."
+    },
+    {
+      "step": 21,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "failed",
+        "reason": "wrong_pin",
+        "attempts_left": 1
+      }
+    },
+    {
+      "step": 22,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "Sorry, I couldn't verify your identity, so I can't help with account requests. 1 attempt(s) left before the profile is locked."
+    },
+    {
+      "step": 23,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "Show my transactions"
+    },
+    {
+      "step": 24,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 25,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 26,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C001."
+    },
+    {
+      "step": 27,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 28,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": false,
+        "reason": "locked"
+      }
+    },
+    {
+      "step": 29,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "locked"
+        }
+      }
+    },
+    {
+      "step": 30,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 3
+      }
+    },
+    {
+      "step": 31,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verification failed (locked)."
+    },
+    {
+      "step": 32,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "failed",
+        "reason": "locked"
+      }
+    },
+    {
+      "step": 33,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
+    },
+    {
+      "step": 34,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "What's my balance?"
+    },
+    {
+      "step": 35,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 36,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 37,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C001."
+    },
+    {
+      "step": 38,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 39,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": false,
+        "reason": "locked"
+      }
+    },
+    {
+      "step": 40,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_failed",
+        "details": {
+          "customer_id": "C001",
+          "reason": "locked"
+        }
+      }
+    },
+    {
+      "step": 41,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 4
+      }
+    },
+    {
+      "step": 42,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verification failed (locked)."
+    },
+    {
+      "step": 43,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "failed",
+        "reason": "locked"
+      }
+    },
+    {
+      "step": 44,
+      "time": "2026-10-28T07:20:47.554+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it."
+    }
+  ]
+}

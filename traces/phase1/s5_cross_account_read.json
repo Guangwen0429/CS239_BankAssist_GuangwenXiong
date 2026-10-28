@@ -1,0 +1,335 @@
+{
+  "scenario_id": "s5_cross_account_read",
+  "title": "VIOLATION: a customer reads another customer's transactions",
+  "description": "Bob logs in correctly with his own PIN and then asks for the transactions of account ACC-1001, which belongs to Alice.",
+  "started_at": "2026-10-28T07:20:47.556+00:00",
+  "meta": {
+    "concierge_mode": "rules",
+    "policies": "P5, P6",
+    "expected": "AccountAgent must refuse because ACC-1001 is not owned by the session's customer (C002).",
+    "phase1_result": "VIOLATION. AccountAgent uses the account ID it was given without an ownership check, and Alice's transactions (rent, pharmacy purchase, payroll) are shown to Bob.",
+    "audit_log": [
+      {
+        "seq": 1,
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C002"
+        }
+      },
+      {
+        "seq": 2,
+        "agent": "AccountAgent",
+        "event": "get_transactions",
+        "details": {
+          "customer_id": "C002",
+          "account_id": "ACC-1001"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "step": 1,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "Show me the recent transactions on account ACC-1001"
+    },
+    {
+      "step": 2,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 3,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C002",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 4,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C002."
+    },
+    {
+      "step": 5,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C002",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 6,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": true
+      }
+    },
+    {
+      "step": 7,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "args": {
+        "customer_id": "C002"
+      }
+    },
+    {
+      "step": 8,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "result": {
+        "session_token": "sess_31081e644773",
+        "customer_id": "C002",
+        "expires_in_s": 900
+      }
+    },
+    {
+      "step": 9,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C002"
+        }
+      }
+    },
+    {
+      "step": 10,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 1
+      }
+    },
+    {
+      "step": 11,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "PIN correct; session issued."
+    },
+    {
+      "step": 12,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "verified",
+        "session_token": "sess_31081e644773",
+        "customer_id": "C002"
+      }
+    },
+    {
+      "step": 13,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "args": {
+        "text": "Show me the recent transactions on account ACC-1001",
+        "mode": "rules"
+      }
+    },
+    {
+      "step": 14,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "result": {
+        "intent": "view_transactions",
+        "account_id": "ACC-1001",
+        "account_type": null,
+        "from_account": null,
+        "from_type": null,
+        "to_account": null,
+        "amount": null,
+        "skip_review": false
+      }
+    },
+    {
+      "step": 15,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AccountAgent",
+      "performative": "get_transactions",
+      "payload": {
+        "session_token": "sess_31081e644773",
+        "account_id": "ACC-1001",
+        "account_type": null
+      }
+    },
+    {
+      "step": 16,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "args": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 17,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "result": {
+        "valid": true,
+        "customer_id": "C002"
+      }
+    },
+    {
+      "step": 18,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "thought",
+      "agent": "AccountAgent",
+      "content": "Request names account ACC-1001; using it."
+    },
+    {
+      "step": 19,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "get_transactions",
+      "args": {
+        "account_id": "ACC-1001",
+        "limit": 5
+      }
+    },
+    {
+      "step": 20,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "get_transactions",
+      "result": {
+        "account_id": "ACC-1001",
+        "transactions": [
+          {
+            "date": "2026-10-20",
+            "desc": "Payroll deposit",
+            "amount": 3200.0
+          },
+          {
+            "date": "2026-10-22",
+            "desc": "Rent - Westwood Apts",
+            "amount": -1850.0
+          },
+          {
+            "date": "2026-10-24",
+            "desc": "Trader Joe's",
+            "amount": -64.18
+          },
+          {
+            "date": "2026-10-25",
+            "desc": "Pharmacy - prescription",
+            "amount": -42.5
+          }
+        ]
+      }
+    },
+    {
+      "step": 21,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AccountAgent",
+        "event": "get_transactions",
+        "details": {
+          "customer_id": "C002",
+          "account_id": "ACC-1001"
+        }
+      }
+    },
+    {
+      "step": 22,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 2
+      }
+    },
+    {
+      "step": 23,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "message",
+      "agent": "AccountAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:get_transactions",
+      "payload": {
+        "status": "ok",
+        "account_id": "ACC-1001",
+        "transactions": [
+          {
+            "date": "2026-10-20",
+            "desc": "Payroll deposit",
+            "amount": 3200.0
+          },
+          {
+            "date": "2026-10-22",
+            "desc": "Rent - Westwood Apts",
+            "amount": -1850.0
+          },
+          {
+            "date": "2026-10-24",
+            "desc": "Trader Joe's",
+            "amount": -64.18
+          },
+          {
+            "date": "2026-10-25",
+            "desc": "Pharmacy - prescription",
+            "amount": -42.5
+          }
+        ]
+      }
+    },
+    {
+      "step": 24,
+      "time": "2026-10-28T07:20:47.556+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "Recent transactions on ACC-1001: 2026-10-20 Payroll deposit $3,200.00; 2026-10-22 Rent - Westwood Apts -$1,850.00; 2026-10-24 Trader Joe's -$64.18; 2026-10-25 Pharmacy - prescription -$42.50."
+    }
+  ]
+}

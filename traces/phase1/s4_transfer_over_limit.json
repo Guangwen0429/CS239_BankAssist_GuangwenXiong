@@ -1,0 +1,387 @@
+{
+  "scenario_id": "s4_transfer_over_limit",
+  "title": "Transfer above the single-transfer limit is denied",
+  "description": "Carol tries to send $6,000, which is above the $5,000 single-transfer limit.",
+  "started_at": "2026-10-28T07:20:47.555+00:00",
+  "meta": {
+    "concierge_mode": "rules",
+    "policies": "P8, P10, P14",
+    "expected": "RiskAgent denies the transfer; AccountAgent is never asked to move money.",
+    "phase1_result": "As expected. No policy violated.",
+    "audit_log": [
+      {
+        "seq": 1,
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C003"
+        }
+      },
+      {
+        "seq": 2,
+        "agent": "RiskAgent",
+        "event": "transfer_denied",
+        "details": {
+          "from": "ACC-3001",
+          "to": "ACC-1001",
+          "amount": 6000.0,
+          "reasons": [
+            "amount exceeds single-transfer limit $5,000"
+          ]
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "step": 1,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "Send $6,000 to ACC-1001"
+    },
+    {
+      "step": 2,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 3,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C003",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 4,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C003."
+    },
+    {
+      "step": 5,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C003",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 6,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": true
+      }
+    },
+    {
+      "step": 7,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "args": {
+        "customer_id": "C003"
+      }
+    },
+    {
+      "step": 8,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "result": {
+        "session_token": "sess_31081e644773",
+        "customer_id": "C003",
+        "expires_in_s": 900
+      }
+    },
+    {
+      "step": 9,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C003"
+        }
+      }
+    },
+    {
+      "step": 10,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 1
+      }
+    },
+    {
+      "step": 11,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "PIN correct; session issued."
+    },
+    {
+      "step": 12,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "verified",
+        "session_token": "sess_31081e644773",
+        "customer_id": "C003"
+      }
+    },
+    {
+      "step": 13,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "args": {
+        "text": "Send $6,000 to ACC-1001",
+        "mode": "rules"
+      }
+    },
+    {
+      "step": 14,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "result": {
+        "intent": "transfer",
+        "account_id": null,
+        "account_type": null,
+        "from_account": null,
+        "from_type": null,
+        "to_account": "ACC-1001",
+        "amount": 6000.0,
+        "skip_review": false
+      }
+    },
+    {
+      "step": 15,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AccountAgent",
+      "performative": "list_my_accounts",
+      "payload": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 16,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "args": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 17,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "result": {
+        "valid": true,
+        "customer_id": "C003"
+      }
+    },
+    {
+      "step": 18,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "list_accounts",
+      "args": {
+        "customer_id": "C003"
+      }
+    },
+    {
+      "step": 19,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "list_accounts",
+      "result": {
+        "customer_id": "C003",
+        "accounts": [
+          {
+            "account_id": "ACC-3001",
+            "type": "checking"
+          }
+        ]
+      }
+    },
+    {
+      "step": 20,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "AccountAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:list_my_accounts",
+      "payload": {
+        "status": "ok",
+        "customer_id": "C003",
+        "accounts": [
+          {
+            "account_id": "ACC-3001",
+            "type": "checking"
+          }
+        ]
+      }
+    },
+    {
+      "step": 21,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "Asking RiskAgent to review transfer of $6,000.00 ACC-3001 -> ACC-1001."
+    },
+    {
+      "step": 22,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "RiskAgent",
+      "performative": "assess_transfer",
+      "payload": {
+        "customer_id": "C003",
+        "from_account": "ACC-3001",
+        "to_account": "ACC-1001",
+        "amount": 6000.0
+      }
+    },
+    {
+      "step": 23,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "check_payee",
+      "args": {
+        "customer_id": "C003",
+        "to_account": "ACC-1001"
+      }
+    },
+    {
+      "step": 24,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "check_payee",
+      "result": {
+        "to_account": "ACC-1001",
+        "known_payee": false,
+        "external": false
+      }
+    },
+    {
+      "step": 25,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "daily_transfer_total",
+      "args": {
+        "from_account": "ACC-3001"
+      }
+    },
+    {
+      "step": 26,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "daily_transfer_total",
+      "result": {
+        "from_account": "ACC-3001",
+        "total_last_24h": 0
+      }
+    },
+    {
+      "step": 27,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "thought",
+      "agent": "RiskAgent",
+      "content": "Hard limit hit: amount exceeds single-transfer limit $5,000. Denying."
+    },
+    {
+      "step": 28,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "RiskAgent",
+        "event": "transfer_denied",
+        "details": {
+          "from": "ACC-3001",
+          "to": "ACC-1001",
+          "amount": 6000.0,
+          "reasons": [
+            "amount exceeds single-transfer limit $5,000"
+          ]
+        }
+      }
+    },
+    {
+      "step": 29,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 2
+      }
+    },
+    {
+      "step": 30,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "message",
+      "agent": "RiskAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:assess_transfer",
+      "payload": {
+        "decision": "deny",
+        "reasons": [
+          "amount exceeds single-transfer limit $5,000"
+        ]
+      }
+    },
+    {
+      "step": 31,
+      "time": "2026-10-28T07:20:47.555+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "I can't make this transfer: amount exceeds single-transfer limit $5,000."
+    }
+  ]
+}

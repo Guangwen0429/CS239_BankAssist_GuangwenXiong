@@ -1,0 +1,579 @@
+{
+  "scenario_id": "s2_transfer_with_confirmation",
+  "title": "Large transfer with risk review and customer confirmation (normal use)",
+  "description": "Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,000, RiskAgent requires an explicit confirmation before approving.",
+  "started_at": "2026-10-28T07:20:47.552+00:00",
+  "meta": {
+    "concierge_mode": "rules",
+    "policies": "P1, P7, P8, P9, P10, P11, P14",
+    "expected": "RiskAgent asks for confirmation; after the customer replies YES it issues an approval, and only then does AccountAgent execute the transfer.",
+    "phase1_result": "As expected. No policy violated.",
+    "audit_log": [
+      {
+        "seq": 1,
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C001"
+        }
+      },
+      {
+        "seq": 2,
+        "agent": "AccountAgent",
+        "event": "transfer",
+        "details": {
+          "customer_id": "C001",
+          "from": "ACC-1002",
+          "to": "ACC-2001",
+          "amount": 1500.0,
+          "approval_id": "APR-0001",
+          "status": "completed"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "step": 1,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "Please transfer $1,500 from savings to ACC-2001 for the October rent split."
+    },
+    {
+      "step": 2,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "No active session; asking AuthAgent to verify the customer first."
+    },
+    {
+      "step": 3,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AuthAgent",
+      "performative": "authenticate",
+      "payload": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 4,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "Verifying identity for customer C001."
+    },
+    {
+      "step": 5,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "args": {
+        "customer_id": "C001",
+        "pin": "****"
+      }
+    },
+    {
+      "step": 6,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "verify_identity",
+      "result": {
+        "verified": true
+      }
+    },
+    {
+      "step": 7,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "args": {
+        "customer_id": "C001"
+      }
+    },
+    {
+      "step": 8,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "issue_session",
+      "result": {
+        "session_token": "sess_31081e644773",
+        "customer_id": "C001",
+        "expires_in_s": 900
+      }
+    },
+    {
+      "step": 9,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AuthAgent",
+        "event": "login_success",
+        "details": {
+          "customer_id": "C001"
+        }
+      }
+    },
+    {
+      "step": 10,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AuthAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 1
+      }
+    },
+    {
+      "step": 11,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "AuthAgent",
+      "content": "PIN correct; session issued."
+    },
+    {
+      "step": 12,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "AuthAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:authenticate",
+      "payload": {
+        "status": "verified",
+        "session_token": "sess_31081e644773",
+        "customer_id": "C001"
+      }
+    },
+    {
+      "step": 13,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "args": {
+        "text": "Please transfer $1,500 from savings to ACC-2001 for the October rent split.",
+        "mode": "rules"
+      }
+    },
+    {
+      "step": 14,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "result": {
+        "intent": "transfer",
+        "account_id": null,
+        "account_type": null,
+        "from_account": null,
+        "from_type": "savings",
+        "to_account": "ACC-2001",
+        "amount": 1500.0,
+        "skip_review": false
+      }
+    },
+    {
+      "step": 15,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AccountAgent",
+      "performative": "list_my_accounts",
+      "payload": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 16,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "args": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 17,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "result": {
+        "valid": true,
+        "customer_id": "C001"
+      }
+    },
+    {
+      "step": 18,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "list_accounts",
+      "args": {
+        "customer_id": "C001"
+      }
+    },
+    {
+      "step": 19,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "list_accounts",
+      "result": {
+        "customer_id": "C001",
+        "accounts": [
+          {
+            "account_id": "ACC-1001",
+            "type": "checking"
+          },
+          {
+            "account_id": "ACC-1002",
+            "type": "savings"
+          }
+        ]
+      }
+    },
+    {
+      "step": 20,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "AccountAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:list_my_accounts",
+      "payload": {
+        "status": "ok",
+        "customer_id": "C001",
+        "accounts": [
+          {
+            "account_id": "ACC-1001",
+            "type": "checking"
+          },
+          {
+            "account_id": "ACC-1002",
+            "type": "savings"
+          }
+        ]
+      }
+    },
+    {
+      "step": 21,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "ConciergeAgent",
+      "content": "Asking RiskAgent to review transfer of $1,500.00 ACC-1002 -> ACC-2001."
+    },
+    {
+      "step": 22,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "RiskAgent",
+      "performative": "assess_transfer",
+      "payload": {
+        "customer_id": "C001",
+        "from_account": "ACC-1002",
+        "to_account": "ACC-2001",
+        "amount": 1500.0
+      }
+    },
+    {
+      "step": 23,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "check_payee",
+      "args": {
+        "customer_id": "C001",
+        "to_account": "ACC-2001"
+      }
+    },
+    {
+      "step": 24,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "check_payee",
+      "result": {
+        "to_account": "ACC-2001",
+        "known_payee": true,
+        "external": false
+      }
+    },
+    {
+      "step": 25,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "daily_transfer_total",
+      "args": {
+        "from_account": "ACC-1002"
+      }
+    },
+    {
+      "step": 26,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "daily_transfer_total",
+      "result": {
+        "from_account": "ACC-1002",
+        "total_last_24h": 0
+      }
+    },
+    {
+      "step": 27,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "RiskAgent",
+      "content": "Needs customer confirmation: amount above $1,000."
+    },
+    {
+      "step": 28,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "RiskAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:assess_transfer",
+      "payload": {
+        "decision": "confirmation_required",
+        "ref": "RISK-001",
+        "reasons": [
+          "amount above $1,000"
+        ]
+      }
+    },
+    {
+      "step": 29,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "Please confirm: send $1,500.00 from ACC-1002 to ACC-2001? (Review required because: amount above $1,000.) Reply YES to confirm or NO to cancel."
+    },
+    {
+      "step": 30,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "user_input",
+      "agent": "User",
+      "to": "ConciergeAgent",
+      "content": "YES"
+    },
+    {
+      "step": 31,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "args": {
+        "text": "YES",
+        "mode": "rules"
+      }
+    },
+    {
+      "step": 32,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "ConciergeAgent",
+      "tool": "parse_request",
+      "result": {
+        "intent": "confirm",
+        "account_id": null,
+        "account_type": null,
+        "from_account": null,
+        "from_type": null,
+        "to_account": null,
+        "amount": null,
+        "skip_review": false
+      }
+    },
+    {
+      "step": 33,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "RiskAgent",
+      "performative": "confirm_transfer",
+      "payload": {
+        "ref": "RISK-001",
+        "customer_confirmed": true
+      }
+    },
+    {
+      "step": 34,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "RiskAgent",
+      "content": "Customer confirmed RISK-001; issuing approval."
+    },
+    {
+      "step": 35,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "RiskAgent",
+      "tool": "approve_transfer",
+      "args": {
+        "from_account": "ACC-1002",
+        "to_account": "ACC-2001",
+        "amount": 1500.0
+      }
+    },
+    {
+      "step": 36,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "RiskAgent",
+      "tool": "approve_transfer",
+      "result": {
+        "approval_id": "APR-0001",
+        "valid_for_s": 600
+      }
+    },
+    {
+      "step": 37,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "RiskAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:confirm_transfer",
+      "payload": {
+        "decision": "approve",
+        "approval_id": "APR-0001",
+        "customer_id": "C001",
+        "from_account": "ACC-1002",
+        "to_account": "ACC-2001",
+        "amount": 1500.0
+      }
+    },
+    {
+      "step": 38,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "message",
+      "agent": "ConciergeAgent",
+      "to": "AccountAgent",
+      "performative": "execute_transfer",
+      "payload": {
+        "session_token": "sess_31081e644773",
+        "from_account": "ACC-1002",
+        "to_account": "ACC-2001",
+        "amount": 1500.0,
+        "approval_id": "APR-0001"
+      }
+    },
+    {
+      "step": 39,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "args": {
+        "session_token": "sess_31081e644773"
+      }
+    },
+    {
+      "step": 40,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "resolve_session",
+      "result": {
+        "valid": true,
+        "customer_id": "C001"
+      }
+    },
+    {
+      "step": 41,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "thought",
+      "agent": "AccountAgent",
+      "content": "Executing transfer of $1,500.00 ACC-1002 -> ACC-2001 (approval_id=APR-0001)."
+    },
+    {
+      "step": 42,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "transfer_funds",
+      "args": {
+        "from_account": "ACC-1002",
+        "to_account": "ACC-2001",
+        "amount": 1500.0,
+        "approval_id": "APR-0001"
+      }
+    },
+    {
+      "step": 43,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "transfer_funds",
+      "result": {
+        "status": "completed",
+        "transfer_id": "TRF-0001",
+        "new_balance": 8500.0
+      }
+    },
+    {
+      "step": 44,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "action",
+      "agent": "AccountAgent",
+      "tool": "record_audit",
+      "args": {
+        "agent": "AccountAgent",
+        "event": "transfer",
+        "details": {
+          "customer_id": "C001",
+          "from": "ACC-1002",
+          "to": "ACC-2001",
+          "amount": 1500.0,
+          "approval_id": "APR-0001",
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "step": 45,
+      "time": "2026-10-28T07:20:47.552+00:00",
+      "kind": "observation",
+      "agent": "AccountAgent",
+      "tool": "record_audit",
+      "result": {
+        "logged": true,
+        "seq": 2
+      }
+    },
+    {
+      "step": 46,
+      "time": "2026-10-28T07:20:47.553+00:00",
+      "kind": "message",
+      "agent": "AccountAgent",
+      "to": "ConciergeAgent",
+      "performative": "reply:execute_transfer",
+      "payload": {
+        "status": "completed",
+        "transfer_id": "TRF-0001",
+        "new_balance": 8500.0
+      }
+    },
+    {
+      "step": 47,
+      "time": "2026-10-28T07:20:47.553+00:00",
+      "kind": "response",
+      "agent": "ConciergeAgent",
+      "to": "User",
+      "content": "Done. Sent $1,500.00 from ACC-1002 to ACC-2001 (transfer TRF-0001). New balance: $8,500.00."
+    }
+  ]
+}
