@@ -16,19 +16,26 @@ from bankassist.trace import Tracer
 
 # Tool capability table from policy P4.  record_audit is allowed for everyone.
 ALLOWED_TOOLS: dict[str, set[str]] = {
-    "AuthAgent": {"verify_identity", "issue_session", "resolve_session", "record_audit"},
+    "AuthAgent": {"verify_identity", "issue_session", "record_audit"},
     "AccountAgent": {"resolve_session", "list_accounts", "get_balance", "get_transactions",
                      "transfer_funds", "record_audit"},
     "RiskAgent": {"check_payee", "daily_transfer_total", "approve_transfer", "record_audit"},
     "ConciergeAgent": {"parse_request", "record_audit"},
 }
 BANKING_TOOLS = (ALLOWED_TOOLS["AuthAgent"] | ALLOWED_TOOLS["AccountAgent"]
-                 | ALLOWED_TOOLS["RiskAgent"]) - {"record_audit"}
+                 | ALLOWED_TOOLS["RiskAgent"] | {"resolve_session"}) - {"record_audit"}
 
-# Policy P11: the only fields RiskAgent may receive for a transfer review.
+# Policy P11: the only fields RiskAgent may ever receive.
+RISK_ALLOWED_FIELDS = {"customer_id", "from_account", "to_account", "amount", "ref", "customer_confirmed"}
+# ... for a transfer review
 RISK_ASSESS_FIELDS = {"customer_id", "from_account", "to_account", "amount"}
-# The confirmation follow-up carries only the RiskAgent's own reference and the YES/NO.
-RISK_CONFIRM_FIELDS = {"ref", "customer_confirmed"}
+# ... for the YES/NO follow-up (RiskAgent's own reference + who is answering)
+RISK_CONFIRM_FIELDS = {"ref", "customer_id", "customer_confirmed"}
+
+# Internal error codes that must never be shown to the customer (P12).
+RAW_ERROR_CODES = ("no_such_account", "no_account_of_type", "insufficient_funds", "invalid_amount",
+                   "invalid_session", "unknown_customer", "wrong_pin")
+_SNAKE_CASE_RE = re.compile(r"\b[a-z]+_[a-z_]+\b")
 
 SEED_PINS = {c["pin"] for c in SEED_DATA["customers"].values()}
 _TOKEN_RE = re.compile(r"sess_[0-9a-f]{12}")
@@ -63,6 +70,20 @@ def turns(tracer: Tracer) -> list[list[dict]]:
         if out:
             out[-1].append(e)
     return out
+
+
+def raw_codes_in(text: str) -> list[str]:
+    """snake_case words (internal codes) that leaked into a customer-facing reply."""
+    return _SNAKE_CASE_RE.findall(text)
+
+
+def strip_times(obj: Any) -> Any:
+    """Copy of a trace with the wall-clock fields ("time", "started_at") removed."""
+    if isinstance(obj, dict):
+        return {k: strip_times(v) for k, v in obj.items() if k not in ("time", "started_at")}
+    if isinstance(obj, list):
+        return [strip_times(v) for v in obj]
+    return obj
 
 
 def walk_strings(obj: Any, path: str = "") -> Iterable[tuple[str, str, str]]:

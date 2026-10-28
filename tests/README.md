@@ -13,9 +13,10 @@ python3 -m unittest discover -s tests -v      # standard library only
 python3 -m pytest tests -q                    # also works if pytest is installed
 ```
 
-Expected result: 182 tests, all passing, with **11 expected failures** (shown as `x`
-by both runners). Those 11 tests describe policies that Phase 1 does not enforce
-yet; see [Expected failures](#expected-failures-known-phase-1-gaps) below.
+Expected result: 247 tests, all passing, with **14 expected failures** (shown as `x`
+by both runners). 14 of them describe policies that Phase 1 does not enforce
+yet, and 2 pin down a known bug in the PIN masking; see
+[Expected failures](#expected-failures) below.
 
 Notes:
 
@@ -27,26 +28,31 @@ Notes:
   and it points it at a small fake server on `127.0.0.1`.
 - The tests never write into the repository. `run_scenarios.main()` is always
   called with `--root <temporary directory>`, and the generated files are
-  deleted afterwards.
+  deleted afterwards. The CLI tests point the CLI's `REPO_ROOT` at a temporary
+  folder, so the session trace it saves on exit is not written to
+  `traces/interactive/`. `tearDown` also removes anything new that does appear
+  there.
 - Checks that should hold for every scripted scenario loop over
   `scenarios.SCENARIOS` instead of naming scenario IDs, so adding or renaming
   a scenario does not need a test change. The policy-gap tests find "their"
-  scenario by its `violation` flag and policy list (for example the violation
-  scenario that lists P5).
+  scenario by its `violation` flag and policy list: the cross-account read is
+  the violation scenario with P5 but not P8, skip-review has P8 but not P5, and
+  debit-other-customer has both.
 
 ## Files
 
 | File | What it covers |
 |---|---|
 | `_path.py` | Adds `src/` to `sys.path`; `rules_only_env()` and `RulesOnlyTestCase` hide the LLM env vars. |
-| `_helpers.py` | Trace helpers (filter events, actions and messages; split a trace into turns), the P4 tool table, the P11 field set and the PIN leak scanner. |
+| `_helpers.py` | Trace helpers (filter events, actions and messages; split a trace into turns; strip time fields), the P4 tool table, the P11 field sets, the list of internal error codes (P12) and the PIN leak scanner. |
 | `test_rule_parser.py` | The Concierge's rule-based parser `rule_parse`. |
 | `test_bank_tools.py` | The mock bank tools in `bank.py`, called directly. |
 | `test_agents_flow.py` | End-to-end conversations through `BankAssistApp`, plus policy checks over every scripted scenario. |
-| `test_policy_gaps.py` | The policies Phase 1 leaves unenforced (P5/P6, P8/P9): expected failures plus tests that record what Phase 1 does today. |
+| `test_policy_gaps.py` | The policies Phase 1 leaves unenforced (P5/P6 reads, P5/P6 debits, P8/P9): expected failures plus tests that record what Phase 1 does today. |
 | `test_llm_fallback.py` | The optional LLM Concierge against a fake OpenAI-compatible server, the fallback to rules, and the LLM-related regression tests. |
-| `test_regressions.py` | Regression tests for the bugs found by the first version of this suite (one class per fix). |
-| `test_traces.py` | `run_scenarios` output (traces, episodes, README, viewer) and the `Tracer` class. |
+| `test_regressions.py` | Regression tests for the fixes from both review rounds (one class per fix). |
+| `test_traces.py` | `run_scenarios` output (traces, episodes, README, viewer), reproducibility of the traces, and the `Tracer` class. |
+| `test_cli.py` | The interactive CLI, run as a subprocess with piped stdin. |
 
 ## Test cases
 
@@ -107,6 +113,8 @@ functionality rather than a specific policy.
 | `TransferFundsTest.test_exact_balance_is_allowed` | Sending the whole balance is allowed (new balance 0). | P10 |
 | `TransferFundsTest.test_invalid_amount` | Zero and negative amounts are refused. | P10 |
 | `TransferFundsTest.test_no_such_account` | Unknown source or destination is refused. | – |
+| `TransferFundsTest.test_fixed_today_is_used_for_transaction_dates` | `Bank(today="2030-01-02")` stamps new transactions with that date. | – |
+| `TransferFundsTest.test_default_today_is_the_current_date` | Without `today`, the current date is used. | – |
 | `TransferFundsTest.test_transfer_marks_approval_used` | A used approval is marked `used` and stored with the transfer. | P8 |
 | `RiskToolsTest.test_approve_transfer` | Approval IDs are sequential and store from/to/amount/unused. | P8 |
 | `RiskToolsTest.test_daily_total` | 24 h total sums only transfers from that account. | P10 |
@@ -126,7 +134,7 @@ Single conversations through `BankAssistApp`:
 | `BalanceAndHistoryTest.test_savings_balance` | A savings question resolves to ACC-1002. | – |
 | `BalanceAndHistoryTest.test_authenticates_only_once_per_conversation` | One login per conversation; `new_conversation()` forces a new one. | P1 |
 | `BalanceAndHistoryTest.test_transactions` | The transaction list is formatted correctly. | – |
-| `BalanceAndHistoryTest.test_unknown_account` | A missing account gives a polite error. | – |
+| `BalanceAndHistoryTest.test_unknown_account` | A missing account gives "Sorry, I couldn't get that balance: that account does not exist." and never the code `no_such_account`. | P12 |
 | `BalanceAndHistoryTest.test_help_and_unknown` | Help and fallback texts; AccountAgent is not contacted. | – |
 | `TransferFlowTest.test_small_transfer_to_saved_payee_is_auto_approved` | $200 to a saved payee: RiskAgent approves, money moves, the approval is marked used. | P7, P8, P9 |
 | `TransferFlowTest.test_multi_turn_confirmed_transfer` | $1,500 asks for confirmation (no approval or execute yet), YES moves the money; the approval matches from/to/amount; `confirm_transfer` comes before `execute_transfer`. | P8, P9, P14 |
@@ -137,7 +145,7 @@ Single conversations through `BankAssistApp`:
 | `TransferFlowTest.test_missing_amount_or_destination` | Incomplete requests never reach RiskAgent. | – |
 | `TransferFlowTest.test_single_transfer_limit_denied` | $6,000 is denied; AccountAgent never gets `execute_transfer`; no `transfer_funds` call; the denial is audited by RiskAgent. | P10, P13, P14 |
 | `TransferFlowTest.test_daily_limit_denied` | Two confirmed $4,500 transfers go through; the third breaks the $10,000 24 h limit and is denied. | P10 |
-| `TransferFlowTest.test_insufficient_funds_not_reported_as_success` | A failed transfer is reported as failed ("No money was moved"). | P10, P14 |
+| `TransferFlowTest.test_insufficient_funds_not_reported_as_success` | A failed transfer is reported in plain words ("there is not enough money in the source account. No money was moved."), with no raw code. | P10, P12, P14 |
 | `AuthenticationFlowTest.test_wrong_pin_gets_no_data_and_no_account_agent_message` | A wrong PIN gets no data, and nothing is sent to AccountAgent or RiskAgent; no session; the request is not even parsed. | P1 |
 | `AuthenticationFlowTest.test_unknown_customer` | An unknown customer gets nothing. | P1 |
 | `AuthenticationFlowTest.test_wrong_pin_transfer_moves_nothing` | Even a "skip the check" transfer with a wrong PIN moves nothing. | P1 |
@@ -153,11 +161,12 @@ through `run_scenarios.run_scenario`, with one sub-test per scenario):
 | `test_there_are_scenarios` | At least 3 scenarios exist. | – |
 | `test_pin_never_unmasked_in_trace_or_audit_log` | No PIN appears in `tracer.to_dict()`, the audit log or the transcript; every `pin` field is `****`; the audit log has no `pin` field at all. | P2, P13 |
 | `test_pin_only_sent_from_concierge_to_auth_agent` | The only message with a `pin` field is Concierge → AuthAgent `authenticate`. | P2 |
-| `test_risk_agent_payload_is_minimal` | `assess_transfer` carries exactly `customer_id, from_account, to_account, amount`; the follow-up `confirm_transfer` carries only `ref, customer_confirmed`; never a session token or PIN. | P11 |
+| `test_risk_agent_payload_is_minimal` | Every RiskAgent payload uses only the P11 fields (`customer_id, from_account, to_account, amount, ref, customer_confirmed`). `assess_transfer` carries exactly the first four, `confirm_transfer` exactly `ref, customer_id, customer_confirmed`, and never a session token or PIN. | P11 |
 | `test_concierge_never_calls_banking_tools` | ConciergeAgent's only action is `parse_request`. | P4, P12 |
-| `test_each_agent_only_calls_its_own_tools` | Every action is in that agent's allowed tool set, and `record_audit` is always written under the caller's own name. | P4 |
+| `test_each_agent_only_calls_its_own_tools` | Every action is in that agent's allowed tool set (AuthAgent: only `verify_identity`, `issue_session`), and `record_audit` is always written under the caller's own name. | P4 |
 | `test_only_account_agent_moves_money` | Every `transfer_funds` call comes from AccountAgent. | P7 |
 | `test_session_token_never_shown_to_user` | No response contains `sess_`. | P12 |
+| `test_no_internal_codes_in_replies` | No response contains a snake_case internal code such as `no_such_account`. | P12 |
 | `test_account_and_risk_requests_only_after_authentication` | No message to AccountAgent or RiskAgent before a `verified` authenticate reply. | P1 |
 | `test_audit_log_covers_logins_reads_denials_transfers` | Audit counts match the trace: one login entry per `verify_identity`, one read entry per balance/transactions read, one `transfer_denied` per denial, one `transfer` per `transfer_funds`. | P13 |
 | `test_money_moved_only_reported_after_completed` | A "Done. Sent $…" reply only appears in a turn where AccountAgent replied `completed`. | P14 |
@@ -179,9 +188,14 @@ through `run_scenarios.run_scenario`, with one sub-test per scenario):
 | `SkipReviewPolicyTest.test_account_agent_rejects_transfer_without_approval` | AccountAgent refuses `execute_transfer` with no approval. | P8 | expected failure |
 | `SkipReviewPolicyTest.test_account_agent_rejects_approval_for_different_amount` | An approval for $10 cannot be used for $1,000. | P8 | expected failure |
 | `SkipReviewPolicyTest.test_account_agent_rejects_reused_approval` | A used approval cannot be replayed. | P8 | expected failure |
-| `Phase1KnownBehaviourTest.test_violation_scenarios_are_flagged` | The scenarios marked `violation` are exactly the P5 and P8 ones. | – | pass |
+| `DebitOtherCustomerPolicyTest.test_transfer_funds_never_debits_an_account_the_customer_does_not_own` | In every scenario, each `transfer` audit entry debits an account owned by the session's customer. | P5 | expected failure |
+| `DebitOtherCustomerPolicyTest.test_alice_cannot_debit_bobs_account` | "Send $500 from ACC-2001 to ACC-1001" as Alice never calls `transfer_funds` from ACC-2001; Bob keeps $830.50. | P5 | expected failure |
+| `DebitOtherCustomerPolicyTest.test_no_bob_data_in_alices_reply` | In the debit-other-customer scenario, Alice's reply shows none of Bob's balances. | P6 | expected failure |
+| `Phase1KnownBehaviourTest.test_violation_scenarios_are_flagged` | The scenarios marked `violation` are exactly the three gap scenarios; violation results start with "VIOLATION" and compliant ones with "As expected". | – | pass |
 | `Phase1KnownBehaviourTest.test_phase1_cross_account_read_leaks_alice_transactions_to_bob` | Today, Bob does see Alice's rent and pharmacy lines, and the audit log shows C002 reading ACC-1001. | P5, P6 | pass (documents the gap) |
 | `Phase1KnownBehaviourTest.test_phase1_skip_review_bypasses_risk_agent_and_confirmation` | Today, the skip-review scenario never contacts RiskAgent, and `transfer_funds` runs with `approval_id=None` and completes. | P8, P9 | pass (documents the gap) |
+| `Phase1KnownBehaviourTest.test_phase1_debit_other_customer_completes` | Today, in s7 RiskAgent auto-approves, `transfer_funds` debits ACC-2001 for C001, and the reply shows Alice Bob's new balance ($330.50). | P5, P6 | pass (documents the gap) |
+| `Phase1KnownBehaviourTest.test_phase1_debit_other_customer_moves_bobs_money` | Today, ACC-2001 drops to $330.50 and ACC-1001 rises to $2,950.00. | P5 | pass (documents the gap) |
 | `Phase1KnownBehaviourTest.test_phase1_express_path_moves_money_immediately` | Today, $3,000 leaves savings in one turn with no approval issued. | P8, P9 | pass (documents the gap) |
 | `Phase1KnownBehaviourTest.test_phase1_compliant_scenarios_never_use_express_path` | The compliant scenarios always carry an approval ID. | P8 | pass |
 
@@ -226,9 +240,11 @@ rule parser".
 
 ### `test_regressions.py`
 
-Each class guards one bug found by the first version of this suite. All of
-these tests failed against the code before the fixes (the guard tests marked
-"guard" below check behaviour that was already correct and must stay that way).
+Each class guards one fix. The first block comes from the first round of
+testing: all of those tests failed against the code before the fixes, except
+the ones marked "guard", which check behaviour that was already correct and
+must stay that way. The second block covers the behaviour changed after the
+independent review.
 
 | Class / test | What it checks | Policy |
 |---|---|---|
@@ -236,12 +252,12 @@ these tests failed against the code before the fixes (the guard tests marked
 | `EmptyAmountRegressionTest.test_other_degenerate_amounts` | `$`, `$,,,` and `, dollars` also give amount `None`. | – |
 | `EmptyAmountRegressionTest.test_chat_asks_for_amount_instead_of_crashing` | `app.chat` replies "Please tell me the amount and the destination account…" and never reaches RiskAgent. | – |
 | `NormalizeRequestTest.test_non_dict_is_rejected` | `normalize_request` returns `None` for `None`, lists, strings, numbers and bools. | – |
-| `NormalizeRequestTest.test_missing_or_unknown_intent_is_rejected` | Returns `None` for a missing, `None`, unknown, wrong-case or non-string intent. | – |
+| `NormalizeRequestTest.test_missing_or_unknown_intent_is_rejected` | Returns `None` for a missing, `None`, unknown, wrong-case, numeric, list or object intent. | – |
 | `NormalizeRequestTest.test_every_known_intent_is_accepted` | All 7 documented intents are accepted. | – |
 | `NormalizeRequestTest.test_output_has_rule_parse_shape` | Output has exactly the `rule_parse` keys; extra keys (`pin`, `session_token`) are dropped. | P2, P12 |
 | `NormalizeRequestTest.test_skip_review_only_true_for_true_or_string_true` | `skip_review` is `True` only for `True` or the string `"true"` (any case or spacing). `"false"`, `"False"`, `1`, `"yes"`, `""`, `None` and others give `False`. | P8 |
 | `NormalizeRequestTest.test_amount_strings_are_converted` | `"50"`, `"$1,200.50"`, `" 75 "`, `75` and `12.5` become floats. | – |
-| `NormalizeRequestTest.test_bad_amounts_become_none` | Garbage, empty, zero, negative, bool, list and dict amounts become `None`. | P10 |
+| `NormalizeRequestTest.test_bad_amounts_become_none` | Garbage, empty, zero, negative, bool, list, dict and non-finite amounts (`inf`, `"Infinity"`, `nan`) become `None`. | P10 |
 | `NormalizeRequestTest.test_account_ids_are_validated_and_upper_cased` | Valid IDs are trimmed and upper-cased. | – |
 | `NormalizeRequestTest.test_malformed_account_ids_are_dropped` | `ACC-12`, `ACC1001`, `acc-1001x`, `XYZ-1001`, injected text and non-strings are dropped. | – |
 | `NormalizeRequestTest.test_account_types_lowercased_and_validated` | `Checking` / ` SAVINGS ` are lower-cased; unknown types are dropped. | – |
@@ -257,16 +273,66 @@ these tests failed against the code before the fixes (the guard tests marked
 | `OwnAccountTransferTest.test_above_one_thousand_still_needs_confirmation` | $1,000.01 between own accounts needs YES, only because of the amount. | P9 |
 | `OwnAccountTransferTest.test_source_defaults_to_the_other_account_type` | "move $50 to checking" comes from savings, and "to my savings" comes from checking. | – |
 | `OwnAccountTransferTest.test_missing_own_account_type` | Bob has no savings account: a polite error, and RiskAgent is not contacted. | – |
-| `PendingCancelledOnNewRequestTest.test_new_request_tells_risk_agent_to_cancel` | A new request while a transfer is pending sends RiskAgent `confirm_transfer` with `customer_confirmed: False`. The ref leaves `RiskAgent.pending`, and a late YES does nothing. | P9 |
+| `PendingCancelledOnNewRequestTest.test_new_request_tells_risk_agent_to_cancel` | A new request while a transfer is pending sends RiskAgent `confirm_transfer` with `{ref, customer_id, customer_confirmed: False}`. The reply starts with the cancellation notice, the ref leaves `RiskAgent.pending`, and a late YES does nothing. | P9, P14 |
 | `PendingCancelledOnNewRequestTest.test_cancel_happens_before_new_transfer_is_assessed` | Message order is assess → cancel → assess; only the new ref is pending, and confirming it completes. | P9 |
 | `ExpiredSessionRenewalTest.test_balance_after_expiry_reauthenticates` | After forcing expiry (`issued_at -= 10_000`), a balance request still succeeds. The trace shows a second `authenticate`, one refused and one retried `get_balance`, and two `login_success` audit entries. | P1, P13 |
 | `ExpiredSessionRenewalTest.test_pin_still_masked_after_renewal` | After the renewal, the PIN is still `****` everywhere in the trace and audit log, and only goes Concierge → AuthAgent. | P2, P13 |
 | `ExpiredSessionRenewalTest.test_credentials_not_kept_between_turns` | The Concierge does not keep the PIN after a turn ends. | P2 |
 | `ExpiredSessionRenewalTest.test_confirmation_after_expiry_still_completes` | A YES sent after the session expired still completes the approved transfer. | P1, P14 |
-| `ExpiredSessionRenewalTest.test_expiry_with_wrong_pin_returns_no_data` | If renewal fails (wrong PIN), no data is returned, the failure is counted, and the session is dropped. | P1, P3 |
+| `ExpiredSessionRenewalTest.test_expiry_with_wrong_pin_returns_no_data` | If renewal fails (wrong PIN), no data is returned; the reply says "your session could not be verified" (not `invalid_session`); the failure is counted and the session dropped. | P1, P3, P12 |
 | `SameAccountTransferTest.test_same_account_id_refused_without_risk_agent` | "Send $10 from ACC-1001 to ACC-1001" is refused without contacting RiskAgent or moving money. | P10 |
 | `SameAccountTransferTest.test_same_account_type_refused` | "from checking to checking" is refused the same way. | P10 |
 | `SameAccountTransferTest.test_same_account_with_skip_review_also_refused` | The same-account check also runs before the skip-review shortcut. | P8 |
+Second review round:
+
+| Class / test | What it checks | Policy |
+|---|---|---|
+| `PlainErrorMessagesTest.test_explain_mapping` | `_explain()` maps every known code to its sentence, and anything else to "something went wrong on our side". | P12 |
+| `PlainErrorMessagesTest.test_no_such_account_balance` | "Sorry, I couldn't get that balance: that account does not exist." | P12 |
+| `PlainErrorMessagesTest.test_no_such_account_transactions` | "Sorry, I couldn't get the transactions: that account does not exist." | P12 |
+| `PlainErrorMessagesTest.test_insufficient_funds` | "The transfer failed: there is not enough money in the source account. No money was moved." | P12, P14 |
+| `PlainErrorMessagesTest.test_invalid_amount` | A zero amount gives "The transfer failed: the amount is not valid. No money was moved." | P10, P12 |
+| `PlainErrorMessagesTest.test_no_account_of_type_balance` | Bob asking for savings gets "there is no account of that type on your profile". | P12 |
+| `PlainErrorMessagesTest.test_no_raw_codes_in_any_reply_of_a_long_session` | Ten error-prone requests in a row: no reply contains a raw code. | P12 |
+| `AccountTypeAndAuditTest.test_missing_account_type_does_not_fall_back_to_checking` | AccountAgent answers `no_account_of_type` and reads no account at all. | P5 |
+| `AccountTypeAndAuditTest.test_missing_account_type_for_transactions` | The same for transactions: no checking history is shown instead. | P5, P12 |
+| `AccountTypeAndAuditTest.test_existing_type_still_works` | Alice's savings balance still works. | – |
+| `AccountTypeAndAuditTest.test_no_type_named_uses_first_account_if_no_checking` | With no type named, a savings-only customer gets their savings balance; asking for checking explicitly gets the "no account of that type" sentence. | – |
+| `AccountTypeAndAuditTest.test_read_audit_entries_carry_status` | `get_balance` / `get_transactions` audit entries have `status` `ok` or `error` and the customer ID. | P13 |
+| `AccountTypeAndAuditTest.test_read_audit_status_in_every_scenario` | The same holds in every scripted scenario. | P13 |
+| `AccountTypeAndAuditTest.test_transfer_denied_audit_has_customer_id` | RiskAgent's `transfer_denied` entry includes `customer_id`. | P13 |
+| `AuthAgentHardeningTest.test_customer_id_is_normalised` | `"c001 "` logs in as C001 (tool call, session and audit all say C001). | P1 |
+| `AuthAgentHardeningTest.test_normalised_id_counts_towards_lockout` | Wrong PINs under `c001`, ` C001`, `c001 ` all count against C001 and lock it. | P3 |
+| `AuthAgentHardeningTest.test_validate_session_no_longer_supported` | AuthAgent refuses `validate_session` and never calls `resolve_session`. | P4 |
+| `AuthAgentHardeningTest.test_auth_agent_tool_set` | AuthAgent uses exactly `verify_identity`, `issue_session`, `record_audit`. | P4 |
+| `RiskAgentConfirmationTest.test_confirm_payload_names_the_customer` | `confirm_transfer` carries `{ref, customer_id, customer_confirmed}` and only P11 fields. | P11 |
+| `RiskAgentConfirmationTest.test_approve_reply_has_no_internal_fields` | The approval reply has only `decision, approval_id, from_account, to_account, amount` (no `created_at`). | – |
+| `RiskAgentConfirmationTest.test_other_customers_ref_is_denied` | A ref confirmed under another, empty or lower-case customer ID is denied; the owner's pending transfer is untouched and still completes. | P9 |
+| `RiskAgentConfirmationTest.test_missing_customer_id_is_denied` | A confirmation without `customer_id` is denied. | P9 |
+| `RiskAgentConfirmationTest.test_expired_pending_is_denied_and_discarded` | A pending ref older than `APPROVAL_TTL_SECONDS` is denied ("the confirmation window (10 minutes) has passed") and discarded; nothing moves. | P9, P14 |
+| `RiskAgentConfirmationTest.test_pending_just_inside_the_window_is_approved` | 5 s before the deadline, YES still works. | P9 |
+| `RiskAgentConfirmationTest.test_refs_are_never_reused` | After decline, replace, approve and logout, refs are RISK-001 … RISK-004, with only the last one pending. | P9 |
+| `PendingCancellationNoticeTest.test_notice_before_new_balance_reply` | A new request while a transfer is pending gets "(Your transfer that was waiting for confirmation has been cancelled; no money was moved.) " before the answer. | P14 |
+| `PendingCancellationNoticeTest.test_notice_before_new_transfer_confirmation` | The same notice comes before a new confirmation question. | P14 |
+| `PendingCancellationNoticeTest.test_no_notice_without_pending_transfer` | No notice when nothing was pending. | P14 |
+| `PendingCancellationNoticeTest.test_logout_cancels_pending_transfer` | `app.new_conversation()` sends RiskAgent the cancel (with `customer_id`), clears pending state, and the next customer's YES does nothing. | P9, P14 |
+| `PendingCancellationNoticeTest.test_cancel_pending_without_pending_sends_nothing` | `cancel_pending()` with nothing pending sends no message. | – |
+| `PendingCancellationNoticeTest.test_take_back_in_same_message` | "Can you send $100 to ACC-2001? Actually no, cancel" is a decline: RiskAgent is not contacted and nothing moves. | P14 |
+| `PendingCancellationNoticeTest.test_take_back_cancels_a_pending_transfer` | A take-back message while a transfer is pending cancels it. | P9, P14 |
+| `ParserRound2Test.test_rejected_amounts` | `$1e3`, `$10.555`, `$1,,,,5`, `$1,5`, `$1,5000`, `$5.5.5` give amount `None`. | P10 |
+| `ParserRound2Test.test_accepted_amounts` | `$1,000.`, `$200, please`, `$1,000,000`, `300 dollars`, `$ 50`, `$0.5` still parse. | – |
+| `ParserRound2Test.test_rejected_amount_asks_again` | A rejected amount makes the Concierge ask for the amount instead of guessing. | P10 |
+| `ParserRound2Test.test_five_digit_account_is_not_truncated` | "to ACC-20011" does not match ACC-2001; nothing moves. | – |
+| `ParserRound2Test.test_two_destinations_are_ambiguous` | Two different destinations give `to_account None`, so the customer is asked; the same ID twice, or a source plus a destination, still work. | – |
+| `ParserRound2Test.test_without_checking_is_not_skip_review` | "pay $20 to EXT-9001 without checking" is not a skip request and goes to RiskAgent. | P8 |
+| `ParserRound2Test.test_take_back_phrases` | "actually no, cancel", "never mind", "nevermind", "actually no" and "don't send" make it a decline; "cancelled concert" does not. | P14 |
+| `PinInChatTest.test_pin_masked_before_trace_and_parse` | "my pin is 1234 what's my balance" is traced and parsed as "my pin is **** …", and the balance is answered. | P2 |
+| `PinInChatTest.test_other_separators` | The PIN is masked next to `=`/`;`, `!`, parentheses, or on its own. | P2 |
+| `PinInChatTest.test_dollar_amount_equal_to_pin_is_not_masked` | "Send $1234 to ACC-2001" is left as is, and a $1,234.00 transfer is offered. | – |
+| `PinInChatTest.test_longer_numbers_are_not_masked` | `12345`, `112345`, `1,234`, `12.34` are left alone. | – |
+| `PinInChatTest.test_only_the_session_pin_is_masked` | Another customer's PIN in the text is not touched (only the PIN being used is known). | P2 |
+| `PinInChatTest.test_pin_followed_by_comma_is_masked` | "my pin is 1234, what's my balance" must be traced without `1234`. | P2 |
+| `PinInChatTest.test_pin_followed_by_period_is_masked` | "… my pin is 1234." must be traced without `1234`. | P2 |
 
 ### `test_traces.py`
 
@@ -276,9 +342,9 @@ with stdout captured.
 | Class / test | What it checks | Policy |
 |---|---|---|
 | `GeneratedTracesTest.test_course_requirement_at_least_three_traces` | At least 3 traces are produced (course requirement). | – |
-| `GeneratedTracesTest.test_one_json_and_one_md_per_scenario` | 6 scenarios, giving 6 `.json` and 6 `.md` files named after the scenario IDs. | – |
+| `GeneratedTracesTest.test_one_json_and_one_md_per_scenario` | 7 scenarios, giving 7 `.json` and 7 `.md` files named after the scenario IDs. | – |
 | `GeneratedTracesTest.test_readme_written` | `traces/README.md` mentions every scenario. | – |
-| `GeneratedTracesTest.test_episodes_written` | `example1.md` to `example6.md`, each with the required sections. | – |
+| `GeneratedTracesTest.test_episodes_written` | `example1.md` to `example7.md`, each with the required sections. | – |
 | `GeneratedTracesTest.test_output_layout` | All expected files exist, and nothing is written outside `traces/` and `BankAssist/episodes/`. | – |
 | `GeneratedTracesTest.test_viewer_html_written` | `traces/viewer.html` exists, names every scenario, and contains no unmasked PIN. | P2 |
 | `GeneratedTracesTest.test_progress_printed` | The console summary counts the violations correctly. | – |
@@ -289,34 +355,66 @@ with stdout captured.
 | `GeneratedTracesTest.test_no_pin_in_any_written_file` | No PIN in any JSON trace or Markdown file. | P2 |
 | `GeneratedTracesTest.test_markdown_trace_has_one_row_per_event` | The Markdown table has one row per event, plus the audit section. | P13 |
 | `GeneratedTracesTest.test_committed_traces_present_in_repo` | The committed `traces/phase1/` holds at least 3 JSON traces (read-only check). | – |
+| `ReproducibleTracesTest.test_same_files` | Two runs of `run_scenarios.main` into two temporary folders write the same set of files. | – |
+| `ReproducibleTracesTest.test_json_traces_identical_except_time_fields` | Every JSON file is equal after removing `time` / `started_at`. | – |
+| `ReproducibleTracesTest.test_json_traces_byte_identical_after_masking_time_fields` | JSON and `viewer.html` are byte-identical once the `time` / `started_at` values are blanked. | – |
+| `ReproducibleTracesTest.test_markdown_files_byte_identical` | Every Markdown file (traces, episodes, README) is byte-identical. | – |
+| `ReproducibleTracesTest.test_scripted_runs_use_the_fixed_date` | New transactions in the traces are dated `run_scenarios.SCENARIO_DATE` (2026-10-28), not today. | – |
+| `ReproducibleTracesTest.test_run_scenario_twice_in_process` | `run_scenario` twice gives equal traces (minus time fields) and equal transcripts. | – |
 | `TracerUnitTest.test_redact_masks_pin_recursively` | `redact` masks nested `pin` fields and leaves the input untouched. | P2 |
 | `TracerUnitTest.test_events_are_redacted_when_recorded` | Messages and actions are masked as they are recorded. | P2 |
 | `TracerUnitTest.test_unknown_kind_rejected` | Only the six event kinds are accepted. | – |
 | `TracerUnitTest.test_save_json_and_markdown` | Save round-trip; `|` is escaped in Markdown cells. | – |
 
-## Expected failures (known Phase 1 gaps)
+### `test_cli.py` (class `CLITest`, POSIX only)
+
+Each test runs `bankassist.cli.main()` in a subprocess with `cwd=src`, a
+temporary `HOME`, piped stdin and `REPO_ROOT` pointed at a temporary folder.
+The subprocess gets its own session (no controlling terminal), so `getpass`
+reads the PIN from the piped stdin.
+
+| Test | What it checks | Policy |
+|---|---|---|
+| `test_failed_login_asks_for_pin_again` | `--customer c001 --pin 9999`, then "balance", "1234", "What is my balance?", "quit". The output shows `$2,450.00`, "2 attempt(s) left" exactly once, and no lockout. The saved trace has exactly 2 `authenticate` messages (the wrong PIN was not resent), no unmasked PIN, and the PIN line was not treated as a chat message. | P1, P2, P3 |
+| `test_logout_at_pin_prompt_switches_customer` | After a failed login, typing `logout` at the PIN prompt lets Bob log in and see `$830.50`. | P1 |
+| `test_eof_at_customer_prompt_exits_cleanly` | Empty stdin at "Customer ID:" exits with code 0 and no traceback. | – |
+| `test_eof_while_chatting_exits_cleanly` | EOF in the middle of a chat exits with code 0 and no traceback. | – |
+| `test_trace_saved_outside_the_repo` | The session trace is saved under the temporary root, and `<repo>/traces/interactive` is unchanged. | – |
+
+## Expected failures
+
+The run shows 14 expected failures, all for known Phase 1 gaps.
+
+### Known Phase 1 gaps (14 tests)
 
 Phase 1 is the prototype **without** safety enforcement. Two gaps are left in
-on purpose and marked `PHASE-1 GAP` in `src/bankassist/agents.py`:
+on purpose and marked `PHASE-1 GAP` in `src/bankassist/agents.py`. They show
+up in three scenarios:
 
-1. **P5 / P6: no ownership check.** AccountAgent reads any account ID it is
-   given, so Bob can read Alice's transactions (scenario `s5`).
+1. **P5 / P6: no ownership check on reads.** AccountAgent reads any account ID
+   it is given, so Bob can read Alice's transactions (scenario `s5`).
 2. **P8 / P9: express path.** When the customer asks to skip the review, the
    Concierge sends the transfer straight to AccountAgent with
    `approval_id=None`. RiskAgent and the YES/NO step are skipped, and
    AccountAgent does not validate approvals at all (scenario `s6`).
+3. **P5 / P6: no ownership check on debits.** Because of the same missing
+   check, Alice can move $500 out of Bob's account into her own. RiskAgent
+   approves it, since the destination is her own account, and the reply shows
+   her Bob's new balance (scenario `s7`).
 
-The tests in `CrossAccountAccessPolicyTest` and `SkipReviewPolicyTest` assert
-the **correct** policy behaviour. They fail today, so each one is decorated
-with `@unittest.expectedFailure` and commented *"Known Phase 1 gap - to be
-enforced in Phase 2"*. Both `unittest` and `pytest` count them as passing
-(`expected failures=11` / `11 xfailed`).
+The tests in `CrossAccountAccessPolicyTest`, `SkipReviewPolicyTest` and
+`DebitOtherCustomerPolicyTest` assert the **correct** policy behaviour. They
+fail today, so each one is decorated with `@unittest.expectedFailure` and
+commented *"Known Phase 1 gap - to be enforced in Phase 2"*.
 
 When Phase 2 closes a gap, the matching tests start passing. They then show up
 as **unexpected successes**, which make the run fail. That is the reminder to
 remove the decorator, so these tests become ordinary regression tests.
 
 To keep the suite honest, `Phase1KnownBehaviourTest` uses normal assertions to
-confirm that the leak and the bypass really happen today. In Phase 2 these
-tests will fail on purpose and should be removed or inverted at the same time
-as the decorators.
+confirm that the leak, the bypass and the debit really happen today. In Phase 2
+these tests will fail on purpose and should be removed or inverted at the same
+time as the decorators.
+
+Both `unittest` and `pytest` count expected failures as passing
+(`expected failures=14` / `14 xfailed`).

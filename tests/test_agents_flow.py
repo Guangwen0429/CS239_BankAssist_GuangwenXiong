@@ -68,10 +68,10 @@ class BalanceAndHistoryTest(FlowTestBase):
         self.assertIn("Payroll deposit $3,200.00", reply)
         self.assertIn("-$1,850.00", reply)
 
-    def test_unknown_account(self):
+    def test_unknown_account(self):  # P12: plain sentence, no internal code
         reply = self.app.chat(ALICE, ALICE_PIN, "balance of ACC-0000")
-        self.assertIn("couldn't get that balance", reply)
-        self.assertIn("no_such_account", reply)
+        self.assertEqual(reply, "Sorry, I couldn't get that balance: that account does not exist.")
+        self.assertNotIn("no_such_account", reply)
 
     def test_help_and_unknown(self):
         self.assertIn("I can show balances", self.app.chat(ALICE, ALICE_PIN, "help"))
@@ -171,7 +171,9 @@ class TransferFlowTest(FlowTestBase):
 
     def test_insufficient_funds_not_reported_as_success(self):  # P10, P14
         reply = self.app.chat(BOB, BOB_PIN, "Send $900 to ACC-1001")
-        self.assertEqual(reply, "The transfer failed (insufficient_funds). No money was moved.")
+        self.assertEqual(reply, "The transfer failed: there is not enough money in the source account. "
+                                "No money was moved.")
+        self.assertNotIn("insufficient_funds", reply)
         self.assertEqual(self.balance("ACC-2001"), 830.50)
         self.assertEqual(self.balance("ACC-1001"), 2450.00)
 
@@ -265,6 +267,7 @@ class ScenarioPolicyTest(_path.RulesOnlyTestCase, unittest.TestCase):
             with self.subTest(scenario=sc["id"]):
                 for m in H.messages(tracer, to="RiskAgent"):
                     keys = set(m["payload"])
+                    self.assertLessEqual(keys, H.RISK_ALLOWED_FIELDS)
                     if m["performative"] == "assess_transfer":
                         self.assertEqual(keys, H.RISK_ASSESS_FIELDS)
                     else:
@@ -300,6 +303,12 @@ class ScenarioPolicyTest(_path.RulesOnlyTestCase, unittest.TestCase):
             with self.subTest(scenario=sc["id"]):
                 for e in H.events(tracer, "response"):
                     self.assertNotIn("sess_", e["content"])
+
+    def test_no_internal_codes_in_replies(self):  # P12
+        for sc, tracer, _ in self.runs:
+            with self.subTest(scenario=sc["id"]):
+                for e in H.events(tracer, "response"):
+                    self.assertEqual(H.raw_codes_in(e["content"]), [], e["content"])
 
     def test_account_and_risk_requests_only_after_authentication(self):  # P1
         for sc, tracer, _ in self.runs:

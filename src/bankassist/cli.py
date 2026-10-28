@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import json
+import os
 import time
 from pathlib import Path
 
@@ -67,7 +68,7 @@ def main(argv: list[str] | None = None) -> None:
 
     out_dir = REPO_ROOT / "traces" / "interactive"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"session-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    path = out_dir / f"session-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}.json"
     tracer.meta["audit_log"] = app.bank.audit_log
     tracer.save_json(str(path))
     print(f"Trace saved to {path}")

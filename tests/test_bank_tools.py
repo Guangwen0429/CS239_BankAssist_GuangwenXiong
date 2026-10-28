@@ -160,6 +160,17 @@ class TransferFundsTest(BankTestBase):
         self.assertEqual(self.bank.transfer_funds("ACC-0000", "ACC-2001", 1)["reason"], "no_such_account")
         self.assertEqual(self.bank.transfer_funds("ACC-1001", "ACC-0000", 1)["reason"], "no_such_account")
 
+    def test_fixed_today_is_used_for_transaction_dates(self):
+        bank = Bank(today="2030-01-02")
+        bank.transfer_funds("ACC-1001", "ACC-2001", 5.0)
+        self.assertEqual(bank.transactions["ACC-1001"][-1]["date"], "2030-01-02")
+        self.assertEqual(bank.transactions["ACC-2001"][-1]["date"], "2030-01-02")
+
+    def test_default_today_is_the_current_date(self):
+        self.assertIsNone(self.bank.today)
+        self.bank.transfer_funds("ACC-1001", "ACC-2001", 5.0)
+        self.assertEqual(self.bank.transactions["ACC-1001"][-1]["date"], time.strftime("%Y-%m-%d"))
+
     def test_transfer_marks_approval_used(self):
         aid = self.bank.approve_transfer("ACC-1001", "ACC-2001", 50.0)["approval_id"]
         self.bank.transfer_funds("ACC-1001", "ACC-2001", 50.0, approval_id=aid)

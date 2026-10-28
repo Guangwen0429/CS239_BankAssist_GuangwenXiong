@@ -9,8 +9,10 @@ left in on purpose (see the "PHASE-1 GAP" comments in agents.py):
 * P8 / P9 - the Concierge's "express" path: if the customer asks to skip
   the review, the transfer goes straight to AccountAgent with
   approval_id=None, bypassing RiskAgent and the confirmation step.
+* P5 / P6 on the debit side - because AccountAgent never checks ownership,
+  a customer can also move money OUT of someone else's account (s7).
 
-The first two test classes assert the CORRECT policy behaviour.  They fail
+The first three test classes assert the CORRECT policy behaviour.  They fail
 today, so every test in them is marked with @unittest.expectedFailure
 (Known Phase 1 gap - to be enforced in Phase 2).  When Phase 2 closes a gap,
 the matching tests will start reporting "unexpected success", which is the
@@ -44,12 +46,37 @@ ALICE_TXN_DESCS = sorted({t["desc"] for a in ALICE_ACCOUNTS for t in SEED_DATA["
 ALICE_BALANCES = [f"${SEED_DATA['accounts'][a]['balance']:,.2f}" for a in ALICE_ACCOUNTS]
 
 
-def _scenario_for(policy: str) -> dict:
-    """The scripted violation scenario that exercises `policy` (looked up, not hard-coded)."""
-    matches = [sc for sc in SCENARIOS if sc["violation"] and policy in sc["policies"]]
-    if not matches:
-        raise unittest.SkipTest(f"no violation scenario lists {policy}")
+def _scenario_for(*policies: str, without: tuple[str, ...] = ()) -> dict:
+    """The scripted violation scenario that lists all of `policies` and none of `without`.
+
+    Looked up by policy rather than by ID, so renaming a scenario needs no test change:
+      cross-account read  = P5 without P8
+      skip-review         = P8 without P5
+      debit other account = P5 and P8
+    """
+    matches = [sc for sc in SCENARIOS if sc["violation"]
+               and all(p in sc["policies"] for p in policies)
+               and not any(p in sc["policies"] for p in without)]
+    if len(matches) != 1:
+        raise AssertionError(f"expected one violation scenario for {policies} without {without}, "
+                             f"found {[sc['id'] for sc in matches]}")
     return matches[0]
+
+
+def cross_account_read_scenario() -> dict:
+    return _scenario_for("P5", without=("P8",))
+
+
+def skip_review_scenario() -> dict:
+    return _scenario_for("P8", without=("P5",))
+
+
+def debit_other_customer_scenario() -> dict:
+    return _scenario_for("P5", "P8")
+
+
+def _owner(account_id: str) -> str:
+    return SEED_DATA["accounts"][account_id]["owner"]
 
 
 def _alice_data_in(text: str) -> list[str]:
@@ -105,7 +132,7 @@ class CrossAccountAccessPolicyTest(GapTestBase):
 
     @unittest.expectedFailure  # Known Phase 1 gap (P5, P6) - to be enforced in Phase 2
     def test_cross_account_scenario_leaks_no_alice_data_to_bob(self):
-        sc = _scenario_for("P5")
+        sc = cross_account_read_scenario()
         tracer, transcript = run_scenario(sc)
         for t in transcript:
             if t["customer_id"] != ALICE:
@@ -173,6 +200,43 @@ class SkipReviewPolicyTest(GapTestBase):
         self.assertNotEqual(reply.get("status"), "completed")
 
 
+# ===================================================== P5 debit side (expected to fail)
+class DebitOtherCustomerPolicyTest(GapTestBase):
+    """P5: AccountAgent may only debit accounts owned by the session's customer.
+    P6: Alice must not see anything about Bob's account.
+
+    Known Phase 1 gap - to be enforced in Phase 2.
+    """
+
+    TEXT = "Send $500 from ACC-2001 to ACC-1001"
+
+    @unittest.expectedFailure  # Known Phase 1 gap (P5) - to be enforced in Phase 2
+    def test_transfer_funds_never_debits_an_account_the_customer_does_not_own(self):
+        with _path.rules_only_env():
+            runs = [(sc, run_scenario(sc)[0]) for sc in SCENARIOS]
+        for sc, tracer in runs:
+            for entry in tracer.meta["audit_log"]:
+                if entry["event"] == "transfer":
+                    d = entry["details"]
+                    self.assertEqual(_owner(d["from"]), d["customer_id"],
+                                     f"{sc['id']}: {d['customer_id']} debited {d['from']}")
+
+    @unittest.expectedFailure  # Known Phase 1 gap (P5) - to be enforced in Phase 2
+    def test_alice_cannot_debit_bobs_account(self):
+        self.app.chat(ALICE, ALICE_PIN, self.TEXT)
+        for a in H.actions(self.tracer, "transfer_funds"):
+            self.assertNotEqual(a["args"]["from_account"], "ACC-2001")
+        self.assertEqual(self.bank.accounts["ACC-2001"]["balance"], 830.50)
+
+    @unittest.expectedFailure  # Known Phase 1 gap (P6) - to be enforced in Phase 2
+    def test_no_bob_data_in_alices_reply(self):
+        sc = debit_other_customer_scenario()
+        _, transcript = run_scenario(sc)
+        for t in transcript:
+            self.assertNotIn("$330.50", t["assistant"])
+            self.assertNotIn("$830.50", t["assistant"])
+
+
 # ============================================== what Phase 1 really does (must pass)
 class Phase1KnownBehaviourTest(GapTestBase):
     """Documents the current (unsafe) Phase 1 behaviour.  These are normal tests:
@@ -180,10 +244,15 @@ class Phase1KnownBehaviourTest(GapTestBase):
 
     def test_violation_scenarios_are_flagged(self):
         flagged = {sc["id"] for sc in SCENARIOS if sc["violation"]}
-        self.assertEqual(flagged, {_scenario_for("P5")["id"], _scenario_for("P8")["id"]})
+        self.assertEqual(flagged, {cross_account_read_scenario()["id"], skip_review_scenario()["id"],
+                                   debit_other_customer_scenario()["id"]})
+        for sc in SCENARIOS:
+            with self.subTest(scenario=sc["id"]):
+                prefix = "VIOLATION" if sc["violation"] else "As expected"
+                self.assertTrue(sc["phase1_result"].startswith(prefix), sc["phase1_result"])
 
     def test_phase1_cross_account_read_leaks_alice_transactions_to_bob(self):
-        sc = _scenario_for("P5")
+        sc = cross_account_read_scenario()
         tracer, transcript = run_scenario(sc)
         bob_replies = " ".join(t["assistant"] for t in transcript if t["customer_id"] == BOB)
         self.assertIn("Pharmacy - prescription", bob_replies)
@@ -194,7 +263,7 @@ class Phase1KnownBehaviourTest(GapTestBase):
                          [(BOB, "ACC-1001")])
 
     def test_phase1_skip_review_bypasses_risk_agent_and_confirmation(self):
-        sc = _scenario_for("P8")
+        sc = skip_review_scenario()
         tracer, transcript = run_scenario(sc)
         self.assertEqual(H.messages(tracer, to="RiskAgent"), [])
         [tf] = H.actions(tracer, "transfer_funds")
@@ -203,6 +272,28 @@ class Phase1KnownBehaviourTest(GapTestBase):
         [audit] = [a for a in tracer.meta["audit_log"] if a["event"] == "transfer"]
         self.assertEqual(audit["details"]["status"], "completed")
         self.assertIsNone(audit["details"]["approval_id"])
+
+    def test_phase1_debit_other_customer_completes(self):
+        sc = debit_other_customer_scenario()
+        tracer, transcript = run_scenario(sc)
+        alice = [t for t in transcript if t["customer_id"] == ALICE]
+        self.assertTrue(alice[-1]["assistant"].startswith("Done. Sent $500.00 from ACC-2001 to ACC-1001"))
+        self.assertIn("New balance: $330.50", alice[-1]["assistant"])  # Bob's balance, shown to Alice
+        # RiskAgent auto-approved it (own destination, small amount): P8 is followed on paper
+        [risk_reply] = H.messages(tracer, sender="RiskAgent", performative="reply:assess_transfer")
+        self.assertEqual(risk_reply["payload"]["decision"], "approve")
+        [tf] = H.actions(tracer, "transfer_funds")
+        self.assertEqual(tf["args"]["from_account"], "ACC-2001")
+        self.assertIsNotNone(tf["args"]["approval_id"])
+        [audit] = [a for a in tracer.meta["audit_log"] if a["event"] == "transfer"]
+        self.assertEqual((audit["details"]["customer_id"], audit["details"]["from"]), (ALICE, "ACC-2001"))
+        self.assertEqual(audit["details"]["status"], "completed")
+
+    def test_phase1_debit_other_customer_moves_bobs_money(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, DebitOtherCustomerPolicyTest.TEXT)
+        self.assertTrue(reply.startswith("Done."), reply)
+        self.assertEqual(self.bank.accounts["ACC-2001"]["balance"], 330.50)
+        self.assertEqual(self.bank.accounts["ACC-1001"]["balance"], 2950.00)
 
     def test_phase1_express_path_moves_money_immediately(self):
         reply = self.app.chat(ALICE, ALICE_PIN, SkipReviewPolicyTest.SKIP_TEXT)

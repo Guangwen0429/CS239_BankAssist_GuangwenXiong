@@ -10,6 +10,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -50,7 +51,7 @@ class GeneratedTracesTest(unittest.TestCase):
         self.assertGreaterEqual(len(self.traces), 3)
 
     def test_one_json_and_one_md_per_scenario(self):
-        self.assertEqual(N, 6)
+        self.assertEqual(N, 7)
         ids = sorted(sc["id"] for sc in SCENARIOS)
         self.assertEqual(sorted(p.stem for p in self.trace_dir.glob("*.json")), ids)
         self.assertEqual(sorted(p.stem for p in self.trace_dir.glob("*.md")), ids)
@@ -151,6 +152,77 @@ class GeneratedTracesTest(unittest.TestCase):
         # read-only check of the folder submitted with the project
         committed = list(Path(_path.REPO_ROOT, "traces", "phase1").glob("*.json"))
         self.assertGreaterEqual(len(committed), 3)
+
+
+class ReproducibleTracesTest(unittest.TestCase):
+    """Scripted runs use a fixed date and a seeded RNG, so two runs give the same traces
+    apart from the wall-clock fields "time" and "started_at"."""
+
+    @staticmethod
+    def _generate(root: Path) -> None:
+        with _path.rules_only_env(), contextlib.redirect_stdout(io.StringIO()):
+            run_scenarios.main(["--root", str(root)])
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory(prefix="bankassist-repro-")
+        cls.a, cls.b = Path(cls._tmp.name, "a"), Path(cls._tmp.name, "b")
+        cls._generate(cls.a)
+        cls._generate(cls.b)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def files(self, root: Path) -> list[str]:
+        return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+    def test_same_files(self):
+        self.assertEqual(self.files(self.a), self.files(self.b))
+
+    def test_json_traces_identical_except_time_fields(self):
+        for rel in self.files(self.a):
+            if not rel.endswith(".json"):
+                continue
+            with self.subTest(file=rel):
+                da = json.loads((self.a / rel).read_text(encoding="utf-8"))
+                db = json.loads((self.b / rel).read_text(encoding="utf-8"))
+                self.assertEqual(H.strip_times(da), H.strip_times(db))
+
+    def test_json_traces_byte_identical_after_masking_time_fields(self):
+        time_re = re.compile(r'"(time|started_at)": "[^"]*"')
+        for rel in self.files(self.a):
+            if rel.endswith((".json", ".html")):
+                with self.subTest(file=rel):
+                    ta = time_re.sub(r'"\1": "-"', (self.a / rel).read_text(encoding="utf-8"))
+                    tb = time_re.sub(r'"\1": "-"', (self.b / rel).read_text(encoding="utf-8"))
+                    self.assertEqual(ta, tb)
+
+    def test_markdown_files_byte_identical(self):
+        for rel in self.files(self.a):
+            if rel.endswith(".md"):
+                with self.subTest(file=rel):
+                    self.assertEqual((self.a / rel).read_bytes(), (self.b / rel).read_bytes())
+
+    def test_scripted_runs_use_the_fixed_date(self):
+        self.assertEqual(run_scenarios.SCENARIO_DATE, "2026-10-28")
+        dates = set()
+        for p in (self.a / "traces" / "phase1").glob("*.json"):
+            data = json.loads(p.read_text(encoding="utf-8"))
+            for e in data["events"]:
+                if e["kind"] == "observation" and e["tool"] == "get_transactions":
+                    for t in e["result"].get("transactions", []):
+                        if t["desc"].startswith("Transfer"):
+                            dates.add(t["date"])
+        self.assertEqual(dates, {run_scenarios.SCENARIO_DATE})
+
+    def test_run_scenario_twice_in_process(self):
+        for sc in SCENARIOS:
+            with self.subTest(scenario=sc["id"]), _path.rules_only_env():
+                t1, x1 = run_scenarios.run_scenario(sc)
+                t2, x2 = run_scenarios.run_scenario(sc)
+                self.assertEqual(H.strip_times(t1.to_dict()), H.strip_times(t2.to_dict()))
+                self.assertEqual(x1, x2)
 
 
 class TracerUnitTest(unittest.TestCase):

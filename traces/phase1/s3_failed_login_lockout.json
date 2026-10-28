@@ -2,7 +2,7 @@
   "scenario_id": "s3_failed_login_lockout",
   "title": "Wrong PIN three times locks the profile",
   "description": "Someone who does not know Alice's PIN tries three times, then tries the correct PIN.",
-  "started_at": "2026-10-28T07:43:18.681+00:00",
+  "started_at": "2026-10-28T07:50:43.302+00:00",
   "meta": {
     "concierge_mode": "rules",
     "policies": "P1, P2, P3, P13",
@@ -50,7 +50,7 @@
   "events": [
     {
       "step": 1,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -58,14 +58,14 @@
     },
     {
       "step": 2,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 3,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -77,14 +77,14 @@
     },
     {
       "step": 4,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C001."
     },
     {
       "step": 5,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -95,7 +95,7 @@
     },
     {
       "step": 6,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -107,7 +107,7 @@
     },
     {
       "step": 7,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -122,7 +122,7 @@
     },
     {
       "step": 8,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -133,14 +133,14 @@
     },
     {
       "step": 9,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verification failed (wrong_pin)."
     },
     {
       "step": 10,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -153,7 +153,7 @@
     },
     {
       "step": 11,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",
@@ -161,7 +161,7 @@
     },
     {
       "step": 12,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -169,14 +169,14 @@
     },
     {
       "step": 13,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 14,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -188,14 +188,14 @@
     },
     {
       "step": 15,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C001."
     },
     {
       "step": 16,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -206,7 +206,7 @@
     },
     {
       "step": 17,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -218,7 +218,7 @@
     },
     {
       "step": 18,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -233,7 +233,7 @@
     },
     {
       "step": 19,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -244,14 +244,14 @@
     },
     {
       "step": 20,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verification failed (wrong_pin)."
     },
     {
       "step": 21,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -264,7 +264,7 @@
     },
     {
       "step": 22,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",
@@ -272,7 +272,7 @@
     },
     {
       "step": 23,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -280,14 +280,14 @@
     },
     {
       "step": 24,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 25,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -299,14 +299,14 @@
     },
     {
       "step": 26,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C001."
     },
     {
       "step": 27,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -317,7 +317,7 @@
     },
     {
       "step": 28,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -328,7 +328,7 @@
     },
     {
       "step": 29,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -343,7 +343,7 @@
     },
     {
       "step": 30,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -354,14 +354,14 @@
     },
     {
       "step": 31,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verification failed (locked)."
     },
     {
       "step": 32,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -373,7 +373,7 @@
     },
     {
       "step": 33,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",
@@ -381,7 +381,7 @@
     },
     {
       "step": 34,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "user_input",
       "agent": "User",
       "to": "ConciergeAgent",
@@ -389,14 +389,14 @@
     },
     {
       "step": 35,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "ConciergeAgent",
       "content": "No active session; asking AuthAgent to verify the customer first."
     },
     {
       "step": 36,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "ConciergeAgent",
       "to": "AuthAgent",
@@ -408,14 +408,14 @@
     },
     {
       "step": 37,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verifying identity for customer C001."
     },
     {
       "step": 38,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -426,7 +426,7 @@
     },
     {
       "step": 39,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "verify_identity",
@@ -437,7 +437,7 @@
     },
     {
       "step": 40,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "action",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -452,7 +452,7 @@
     },
     {
       "step": 41,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "observation",
       "agent": "AuthAgent",
       "tool": "record_audit",
@@ -463,14 +463,14 @@
     },
     {
       "step": 42,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "thought",
       "agent": "AuthAgent",
       "content": "Verification failed (locked)."
     },
     {
       "step": 43,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "message",
       "agent": "AuthAgent",
       "to": "ConciergeAgent",
@@ -482,7 +482,7 @@
     },
     {
       "step": 44,
-      "time": "2026-10-28T07:43:18.681+00:00",
+      "time": "2026-10-28T07:50:43.302+00:00",
       "kind": "response",
       "agent": "ConciergeAgent",
       "to": "User",

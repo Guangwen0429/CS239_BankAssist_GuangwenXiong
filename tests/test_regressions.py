@@ -15,8 +15,14 @@ except ImportError:
     import _path
     import _helpers as H
 
-from bankassist.agents import _INTENT_FIELDS, normalize_request, rule_parse
-from bankassist.bank import Bank
+import copy
+
+from bankassist.agents import _INTENT_FIELDS, _explain, normalize_request, rule_parse
+from bankassist.app import BankAssistApp
+from bankassist.bank import APPROVAL_TTL_SECONDS, SEED_DATA, Bank
+from bankassist.run_scenarios import run_scenario
+from bankassist.scenarios import SCENARIOS
+from bankassist.trace import Tracer
 
 ALICE, ALICE_PIN = "C001", "1234"
 BOB, BOB_PIN = "C002", "5678"
@@ -24,6 +30,8 @@ CAROL, CAROL_PIN = "C003", "2468"
 
 ASK_AMOUNT = "Please tell me the amount and the destination account, e.g. 'Send $50 to ACC-2001'."
 SAME_ACCOUNT = "The source and destination accounts are the same, so there is nothing to transfer."
+CANCEL_NOTICE = ("(Your transfer that was waiting for confirmation has been cancelled; "
+                 "no money was moved.) ")
 
 
 class AppTestBase(_path.RulesOnlyTestCase, unittest.TestCase):
@@ -67,9 +75,9 @@ class NormalizeRequestTest(unittest.TestCase):
                 self.assertIsNone(normalize_request(cand))
 
     def test_missing_or_unknown_intent_is_rejected(self):
-        # (a list/dict intent is covered at flow level in test_llm_fallback.py)
         for cand in ({}, {"intent": None}, {"intent": "greet"}, {"intent": "HELP"},
-                     {"intent": 3}, {"account_type": "savings"}):
+                     {"intent": 3}, {"intent": ["help"]}, {"intent": {"name": "help"}},
+                     {"account_type": "savings"}):
             with self.subTest(cand=cand):
                 self.assertIsNone(normalize_request(cand))
 
@@ -103,7 +111,8 @@ class NormalizeRequestTest(unittest.TestCase):
                 self.assertIsInstance(out["amount"], float)
 
     def test_bad_amounts_become_none(self):
-        for value in ("fifty", "", "$", "1.2.3", None, True, False, 0, -5, "-10", [50], {"v": 50}):
+        for value in ("fifty", "", "$", "1.2.3", None, True, False, 0, -5, "-10", [50], {"v": 50},
+                      float("inf"), float("-inf"), float("nan"), "Infinity", "inf", "-inf", "NaN"):
             with self.subTest(value=value):
                 self.assertIsNone(normalize_request({"intent": "transfer", "amount": value})["amount"])
 
@@ -240,11 +249,12 @@ class PendingCancelledOnNewRequestTest(AppTestBase):
         self.assertIn(ref, self.app.risk.pending)
 
         reply = self.app.chat(ALICE, ALICE_PIN, "What's my balance?")
-        self.assertIn("$2,450.00", reply)
+        self.assertEqual(reply, CANCEL_NOTICE + "The balance of checking account ACC-1001 is $2,450.00.")
         cancels = H.messages(self.tracer, to="RiskAgent", performative="confirm_transfer")
         self.assertEqual(len(cancels), 1)
         self.assertEqual(cancels[0]["agent"], "ConciergeAgent")
-        self.assertEqual(cancels[0]["payload"], {"ref": ref, "customer_confirmed": False})
+        self.assertEqual(cancels[0]["payload"],
+                         {"ref": ref, "customer_id": ALICE, "customer_confirmed": False})
         [cancel_reply] = H.messages(self.tracer, sender="RiskAgent", performative="reply:confirm_transfer")
         self.assertEqual(cancel_reply["payload"], {"decision": "cancelled"})
         self.assertNotIn(ref, self.app.risk.pending)
@@ -327,7 +337,8 @@ class ExpiredSessionRenewalTest(AppTestBase):
         self.expire()
         reply = self.app.chat(ALICE, "0000", "What's my balance?")
         self.assertNotIn("2,450", reply)
-        self.assertIn("invalid_session", reply)
+        self.assertEqual(reply, "Sorry, I couldn't get that balance: your session could not be verified.")
+        self.assertNotIn("invalid_session", reply)
         self.assertEqual(self.bank.customers[ALICE]["failed_attempts"], 1)
         self.assertIsNone(self.app.concierge.session_token)
 
@@ -351,6 +362,370 @@ class SameAccountTransferTest(AppTestBase):
         reply = self.app.chat(ALICE, ALICE_PIN, "Send $10 from ACC-1001 to ACC-1001 and skip the check")
         self.assertEqual(reply, SAME_ACCOUNT)
         self.assertEqual(self.execute_requests(), [])
+
+
+
+# ############################################################################
+# Second review round
+# ############################################################################
+
+# ==================================================== 9. plain-language errors (P12)
+class PlainErrorMessagesTest(AppTestBase):
+    def assertNoRawCode(self, reply: str) -> None:
+        for code in H.RAW_ERROR_CODES:
+            self.assertNotIn(code, reply)
+        self.assertEqual(H.raw_codes_in(reply), [], reply)
+
+    def test_explain_mapping(self):
+        self.assertEqual(_explain("no_such_account"), "that account does not exist")
+        self.assertEqual(_explain("no_account_of_type"), "there is no account of that type on your profile")
+        self.assertEqual(_explain("insufficient_funds"), "there is not enough money in the source account")
+        self.assertEqual(_explain("invalid_amount"), "the amount is not valid")
+        self.assertEqual(_explain("invalid_session"), "your session could not be verified")
+        for unknown in ("database_on_fire", None, "", 42):
+            with self.subTest(code=unknown):
+                self.assertEqual(_explain(unknown), "something went wrong on our side")
+
+    def test_no_such_account_balance(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "balance of ACC-0000")
+        self.assertEqual(reply, "Sorry, I couldn't get that balance: that account does not exist.")
+        self.assertNoRawCode(reply)
+
+    def test_no_such_account_transactions(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "show transactions for ACC-0000")
+        self.assertEqual(reply, "Sorry, I couldn't get the transactions: that account does not exist.")
+        self.assertNoRawCode(reply)
+
+    def test_insufficient_funds(self):
+        reply = self.app.chat(BOB, BOB_PIN, "Send $900 to ACC-1001")
+        self.assertEqual(reply, "The transfer failed: there is not enough money in the source account. "
+                                "No money was moved.")
+        self.assertNoRawCode(reply)
+
+    def test_invalid_amount(self):
+        self.app.chat(ALICE, ALICE_PIN, "help")
+        reply = self.app.concierge._execute(
+            {"from_account": "ACC-1001", "to_account": "ACC-2001", "amount": 0}, approval_id=None)
+        self.assertEqual(reply, "The transfer failed: the amount is not valid. No money was moved.")
+        self.assertNoRawCode(reply)
+
+    def test_no_account_of_type_balance(self):
+        reply = self.app.chat(BOB, BOB_PIN, "what's my savings balance")
+        self.assertEqual(reply, "Sorry, I couldn't get that balance: there is no account of that type "
+                                "on your profile.")
+        self.assertNoRawCode(reply)
+
+    def test_no_raw_codes_in_any_reply_of_a_long_session(self):
+        texts = ["balance of ACC-0000", "show transactions for ACC-0000", "what's my savings balance",
+                 "Send $900 to ACC-1001", "send $10 to ACC-0000", "move $10 to savings", "yes", "no",
+                 "help", "blah"]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertNoRawCode(self.app.chat(BOB, BOB_PIN, text))
+
+
+# =========================================== 10. AccountAgent: missing account type, audit
+class AccountTypeAndAuditTest(AppTestBase):
+    def test_missing_account_type_does_not_fall_back_to_checking(self):
+        self.app.chat(BOB, BOB_PIN, "what's my savings balance")
+        [reply] = H.messages(self.tracer, sender="AccountAgent", performative="reply:get_balance")
+        self.assertEqual(reply["payload"], {"status": "error", "reason": "no_account_of_type"})
+        self.assertEqual(H.actions(self.tracer, "get_balance"), [])
+        self.assertEqual(H.actions(self.tracer, "get_transactions"), [])
+
+    def test_missing_account_type_for_transactions(self):
+        reply = self.app.chat(BOB, BOB_PIN, "show my savings transactions")
+        self.assertEqual(reply, "Sorry, I couldn't get the transactions: there is no account of that type "
+                                "on your profile.")
+        self.assertNotIn("Payroll", reply)
+
+    def test_existing_type_still_works(self):
+        self.assertIn("ACC-1002", self.app.chat(ALICE, ALICE_PIN, "what's my savings balance"))
+
+    def test_no_type_named_uses_first_account_if_no_checking(self):
+        seed = copy.deepcopy(SEED_DATA)
+        seed["customers"]["C004"] = {"name": "Dan", "pin": "1357", "failed_attempts": 0,
+                                     "locked": False, "payees": []}
+        seed["accounts"]["ACC-4001"] = {"owner": "C004", "type": "savings", "balance": 75.0}
+        seed["transactions"]["ACC-4001"] = []
+        app = BankAssistApp(tracer=Tracer("t"), bank=Bank(seed=seed))
+        self.assertEqual(app.chat("C004", "1357", "what's my balance"),
+                         "The balance of savings account ACC-4001 is $75.00.")
+        app.new_conversation()
+        self.assertIn("there is no account of that type",
+                      app.chat("C004", "1357", "what's my checking balance"))
+
+    def test_read_audit_entries_carry_status(self):  # P13
+        self.app.chat(ALICE, ALICE_PIN, "What's my balance?")
+        self.app.chat(ALICE, ALICE_PIN, "balance of ACC-0000")
+        self.app.chat(ALICE, ALICE_PIN, "show transactions for ACC-1002")
+        reads = [a for a in self.bank.audit_log if a["event"] in ("get_balance", "get_transactions")]
+        self.assertEqual([(a["event"], a["details"]["account_id"], a["details"]["status"]) for a in reads],
+                         [("get_balance", "ACC-1001", "ok"), ("get_balance", "ACC-0000", "error"),
+                          ("get_transactions", "ACC-1002", "ok")])
+        for a in reads:
+            self.assertEqual(a["details"]["customer_id"], ALICE)
+
+    def test_read_audit_status_in_every_scenario(self):  # P13
+        for sc in SCENARIOS:
+            with self.subTest(scenario=sc["id"]):
+                tracer, _ = run_scenario(sc)
+                for a in tracer.meta["audit_log"]:
+                    if a["event"] in ("get_balance", "get_transactions"):
+                        self.assertIn(a["details"]["status"], ("ok", "error"))
+
+    def test_transfer_denied_audit_has_customer_id(self):  # P13
+        self.app.chat(CAROL, CAROL_PIN, "Send $6,000 to ACC-1001")
+        [denied] = [a for a in self.bank.audit_log if a["event"] == "transfer_denied"]
+        self.assertEqual(denied["details"]["customer_id"], CAROL)
+        self.assertEqual((denied["details"]["from"], denied["details"]["to"], denied["details"]["amount"]),
+                         ("ACC-3001", "ACC-1001", 6000.0))
+
+
+# ======================================================= 11. AuthAgent hardening (P1, P4)
+class AuthAgentHardeningTest(AppTestBase):
+    def test_customer_id_is_normalised(self):
+        reply = self.app.chat("c001 ", ALICE_PIN, "What's my balance?")
+        self.assertEqual(reply, "The balance of checking account ACC-1001 is $2,450.00.")
+        [verify] = H.actions(self.tracer, "verify_identity")
+        self.assertEqual(verify["args"]["customer_id"], ALICE)
+        self.assertEqual(self.app.concierge.customer_id, ALICE)
+        [login] = [a for a in self.bank.audit_log if a["event"] == "login_success"]
+        self.assertEqual(login["details"]["customer_id"], ALICE)
+
+    def test_normalised_id_counts_towards_lockout(self):  # P3
+        for cid in ("c001", " C001", "c001 "):
+            self.app.new_conversation()
+            self.app.chat(cid, "0000", "balance")
+        self.assertTrue(self.bank.customers[ALICE]["locked"])
+
+    def test_validate_session_no_longer_supported(self):  # P4
+        token = self.bank.issue_session(ALICE)["session_token"]
+        reply = self.app.auth.handle("ConciergeAgent", "validate_session", {"session_token": token})
+        self.assertEqual(reply["status"], "error")
+        self.assertEqual(H.actions(self.tracer, "resolve_session", agent="AuthAgent"), [])
+
+    def test_auth_agent_tool_set(self):  # P4
+        self.app.chat(ALICE, ALICE_PIN, "What's my balance?")
+        self.app.new_conversation()
+        self.app.chat(ALICE, "0000", "What's my balance?")
+        tools = {a["tool"] for a in H.actions(self.tracer, agent="AuthAgent")}
+        self.assertEqual(tools, {"verify_identity", "issue_session", "record_audit"})
+
+
+# ============================================ 12. RiskAgent confirmation hardening (P9, P11)
+class RiskAgentConfirmationTest(AppTestBase):
+    def start_pending(self, text: str = "send $2,000 to ACC-2001") -> str:
+        self.assertIn("Please confirm", self.app.chat(ALICE, ALICE_PIN, text))
+        return self.app.concierge.pending_ref
+
+    def test_confirm_payload_names_the_customer(self):  # P11
+        ref = self.start_pending()
+        self.app.chat(ALICE, ALICE_PIN, "yes")
+        [confirm] = H.messages(self.tracer, to="RiskAgent", performative="confirm_transfer")
+        self.assertEqual(confirm["payload"], {"ref": ref, "customer_id": ALICE, "customer_confirmed": True})
+        for m in H.messages(self.tracer, to="RiskAgent"):
+            self.assertLessEqual(set(m["payload"]), H.RISK_ALLOWED_FIELDS)
+
+    def test_approve_reply_has_no_internal_fields(self):
+        self.start_pending()
+        self.app.chat(ALICE, ALICE_PIN, "yes")
+        [reply] = H.messages(self.tracer, sender="RiskAgent", performative="reply:confirm_transfer")
+        self.assertEqual(set(reply["payload"]),
+                         {"decision", "approval_id", "from_account", "to_account", "amount"})
+
+    def test_other_customers_ref_is_denied(self):
+        ref = self.start_pending()
+        for cid in (BOB, None, "", "c001"):
+            with self.subTest(customer_id=cid):
+                reply = self.app.risk.handle("ConciergeAgent", "confirm_transfer",
+                                             {"ref": ref, "customer_id": cid, "customer_confirmed": True})
+                self.assertEqual(reply, {"decision": "deny", "reasons": ["unknown or expired reference"]})
+        self.assertIn(ref, self.app.risk.pending)  # Alice's transfer is untouched
+        self.assertEqual(self.bank.approvals, {})
+        self.assertTrue(self.app.chat(ALICE, ALICE_PIN, "yes").startswith("Done. Sent $2,000.00"))
+
+    def test_missing_customer_id_is_denied(self):
+        ref = self.start_pending()
+        reply = self.app.risk.handle("ConciergeAgent", "confirm_transfer",
+                                     {"ref": ref, "customer_confirmed": True})
+        self.assertEqual(reply["decision"], "deny")
+        self.assertEqual(self.bank.approvals, {})
+
+    def test_expired_pending_is_denied_and_discarded(self):
+        ref = self.start_pending()
+        self.app.risk.pending[ref]["created_at"] -= APPROVAL_TTL_SECONDS + 1
+        reply = self.app.chat(ALICE, ALICE_PIN, "yes")
+        self.assertEqual(reply, "The transfer could not be approved: the confirmation window "
+                                "(10 minutes) has passed.")
+        self.assertNotIn(ref, self.app.risk.pending)
+        self.assertEqual(self.bank.approvals, {})
+        self.assertEqual(self.execute_requests(), [])
+        self.assertEqual(self.balance("ACC-1001"), 2450.00)
+
+    def test_pending_just_inside_the_window_is_approved(self):
+        ref = self.start_pending()
+        self.app.risk.pending[ref]["created_at"] -= APPROVAL_TTL_SECONDS - 5
+        self.assertTrue(self.app.chat(ALICE, ALICE_PIN, "yes").startswith("Done."))
+
+    def test_refs_are_never_reused(self):
+        refs = [self.start_pending()]
+        self.app.chat(ALICE, ALICE_PIN, "no")                           # declined
+        refs.append(self.start_pending())
+        refs.append(self.start_pending("send $1,500 to ACC-2001"))      # replaces (cancels) the previous
+        self.app.chat(ALICE, ALICE_PIN, "yes")                          # approved
+        self.app.new_conversation()
+        refs.append(self.start_pending("send $1,200 to ACC-2001"))
+        self.assertEqual(refs, ["RISK-001", "RISK-002", "RISK-003", "RISK-004"])
+        self.assertEqual(list(self.app.risk.pending), ["RISK-004"])
+
+
+# ===================================== 13. cancellation notice and logout cancellation (P14)
+class PendingCancellationNoticeTest(AppTestBase):
+    def test_notice_before_new_balance_reply(self):
+        self.app.chat(ALICE, ALICE_PIN, "send $2,000 to ACC-2001")
+        reply = self.app.chat(ALICE, ALICE_PIN, "Show my transactions")
+        self.assertTrue(reply.startswith(CANCEL_NOTICE + "Recent transactions on ACC-1001"), reply)
+
+    def test_notice_before_new_transfer_confirmation(self):
+        self.app.chat(ALICE, ALICE_PIN, "send $2,000 to ACC-2001")
+        reply = self.app.chat(ALICE, ALICE_PIN, "send $1,500 to ACC-2001")
+        self.assertTrue(reply.startswith(CANCEL_NOTICE + "Please confirm: send $1,500.00"), reply)
+
+    def test_no_notice_without_pending_transfer(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "What's my balance?")
+        self.assertFalse(reply.startswith("("))
+
+    def test_logout_cancels_pending_transfer(self):
+        self.app.chat(ALICE, ALICE_PIN, "send $2,000 to ACC-2001")
+        ref = self.app.concierge.pending_ref
+        self.app.new_conversation()
+        [cancel] = H.messages(self.tracer, to="RiskAgent", performative="confirm_transfer")
+        self.assertEqual(cancel["payload"], {"ref": ref, "customer_id": ALICE, "customer_confirmed": False})
+        self.assertEqual(self.app.risk.pending, {})
+        self.assertIsNone(self.app.concierge.pending_ref)
+        # the next customer cannot confirm it
+        self.assertEqual(self.app.chat(BOB, BOB_PIN, "yes"), "There is nothing waiting for confirmation.")
+        self.assertEqual(self.bank.approvals, {})
+        self.assertEqual(self.execute_requests(), [])
+
+    def test_cancel_pending_without_pending_sends_nothing(self):
+        self.app.chat(ALICE, ALICE_PIN, "help")
+        self.app.concierge.cancel_pending()
+        self.app.new_conversation()
+        self.assertEqual(H.messages(self.tracer, to="RiskAgent"), [])
+
+    def test_take_back_in_same_message(self):
+        text = "Can you send $100 to ACC-2001? Actually no, cancel"
+        self.assertEqual(rule_parse(text)["intent"], "decline")
+        reply = self.app.chat(ALICE, ALICE_PIN, text)
+        self.assertEqual(reply, "There is nothing waiting for confirmation.")
+        self.assertEqual(H.messages(self.tracer, to="RiskAgent"), [])
+        self.assertEqual(self.bank.transfers, {})
+
+    def test_take_back_cancels_a_pending_transfer(self):
+        self.app.chat(ALICE, ALICE_PIN, "send $2,000 to ACC-2001")
+        reply = self.app.chat(ALICE, ALICE_PIN, "send $3,000 to ACC-2001, never mind")
+        self.assertEqual(reply, "OK, the transfer was cancelled. No money was moved.")
+        self.assertEqual(len(H.messages(self.tracer, to="RiskAgent", performative="assess_transfer")), 1)
+        self.assertEqual(self.app.risk.pending, {})
+
+
+# ===================================================== 14. stricter rule parser
+class ParserRound2Test(AppTestBase):
+    def test_rejected_amounts(self):
+        for amount in ("$1e3", "$10.555", "$1,,,,5", "$1,5", "$1,5000", "$5.5.5"):
+            with self.subTest(amount=amount):
+                self.assertIsNone(rule_parse(f"send {amount} to ACC-2001")["amount"])
+
+    def test_accepted_amounts(self):
+        for text, expected in (("send $1,000. to ACC-2001", 1000.0), ("send $200, please, to ACC-2001", 200.0),
+                               ("send $1,000,000 to ACC-2001", 1_000_000.0), ("send 300 dollars to ACC-2001", 300.0),
+                               ("send $ 50 to ACC-2001", 50.0), ("send $0.5 to ACC-2001", 0.5)):
+            with self.subTest(text=text):
+                self.assertEqual(rule_parse(text)["amount"], expected)
+
+    def test_rejected_amount_asks_again(self):
+        self.assertEqual(self.app.chat(ALICE, ALICE_PIN, "send $1e3 to ACC-2001"), ASK_AMOUNT)
+        self.assertEqual(H.messages(self.tracer, to="RiskAgent"), [])
+
+    def test_five_digit_account_is_not_truncated(self):
+        out = rule_parse("send $10 to ACC-20011")
+        self.assertIsNone(out["to_account"])
+        self.assertEqual(self.app.chat(ALICE, ALICE_PIN, "send $10 to ACC-20011"), ASK_AMOUNT)
+        self.assertEqual(self.bank.transfers, {})
+
+    def test_two_destinations_are_ambiguous(self):
+        self.assertIsNone(rule_parse("Send $10 to ACC-2001 to ACC-3001")["to_account"])
+        self.assertIsNone(rule_parse("Send $10 to ACC-2001 or ACC-3001")["to_account"])
+        self.assertEqual(self.app.chat(ALICE, ALICE_PIN, "Send $10 to ACC-2001 to ACC-3001"), ASK_AMOUNT)
+        # the same account named twice is not ambiguous
+        self.assertEqual(rule_parse("send $10 to ACC-2001, ACC-2001 is Bob")["to_account"], "ACC-2001")
+        # the source does not count as a second destination
+        out = rule_parse("send $10 from ACC-1001 to ACC-2001")
+        self.assertEqual((out["from_account"], out["to_account"]), ("ACC-1001", "ACC-2001"))
+
+    def test_without_checking_is_not_skip_review(self):  # P8
+        out = rule_parse("pay $20 to EXT-9001 without checking")
+        self.assertIs(out["skip_review"], False)
+        reply = self.app.chat(ALICE, ALICE_PIN, "pay $20 to EXT-9001 without checking")
+        self.assertIn("Please confirm", reply)
+        self.assertEqual(len(H.messages(self.tracer, to="RiskAgent", performative="assess_transfer")), 1)
+
+    def test_take_back_phrases(self):
+        for text in ("Can you send $100 to ACC-2001? Actually no, cancel", "send $5 to ACC-2001, never mind",
+                     "send $5 to ACC-2001... nevermind", "pay ACC-2001 $5, actually no",
+                     "don't send $5 to ACC-2001"):
+            with self.subTest(text=text):
+                self.assertEqual(rule_parse(text)["intent"], "decline")
+        # words that only contain "cancel" are not a take-back
+        self.assertEqual(rule_parse("pay $30 to ACC-2001 for the cancelled concert")["intent"], "transfer")
+
+
+# ========================================================= 15. PIN typed into the chat (P2)
+class PinInChatTest(AppTestBase):
+    def traced_input(self) -> str:
+        return H.events(self.tracer, "user_input")[-1]["content"]
+
+    def test_pin_masked_before_trace_and_parse(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "my pin is 1234 what's my balance")
+        self.assertEqual(reply, "The balance of checking account ACC-1001 is $2,450.00.")
+        self.assertEqual(self.traced_input(), "my pin is **** what's my balance")
+        [parse] = H.actions(self.tracer, "parse_request")
+        self.assertNotIn(ALICE_PIN, parse["args"]["text"])
+        self.assertEqual(H.find_pin_leaks(self.tracer.to_dict(), {ALICE_PIN}), [])
+
+    def test_other_separators(self):
+        for text, traced in (("pin=1234;balance", "pin=****;balance"), ("PIN 1234!", "PIN ****!"),
+                             ("1234", "****"), ("balance (1234)", "balance (****)")):
+            with self.subTest(text=text):
+                self.app.chat(ALICE, ALICE_PIN, text)
+                self.assertEqual(self.traced_input(), traced)
+
+    def test_dollar_amount_equal_to_pin_is_not_masked(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "Send $1234 to ACC-2001")
+        self.assertEqual(self.traced_input(), "Send $1234 to ACC-2001")
+        self.assertTrue(reply.startswith("Please confirm: send $1,234.00"), reply)
+
+    def test_longer_numbers_are_not_masked(self):
+        for text in ("my ref is 12345", "call 112345", "1,234 dollars balance", "12.34"):
+            with self.subTest(text=text):
+                self.app.chat(ALICE, ALICE_PIN, text)
+                self.assertEqual(self.traced_input(), text)
+
+    def test_only_the_session_pin_is_masked(self):
+        self.app.chat(ALICE, ALICE_PIN, "is 5678 bob's pin? what's my balance")
+        self.assertIn("5678", self.traced_input())
+
+    def test_pin_followed_by_comma_is_masked(self):
+        reply = self.app.chat(ALICE, ALICE_PIN, "my pin is 1234, what's my balance")
+        self.assertEqual(reply, "The balance of checking account ACC-1001 is $2,450.00.")
+        self.assertNotIn(ALICE_PIN, self.traced_input())
+        self.assertIn("****", self.traced_input())
+
+    def test_pin_followed_by_period_is_masked(self):
+        self.app.chat(ALICE, ALICE_PIN, "what's my balance? my pin is 1234.")
+        self.assertNotIn(ALICE_PIN, self.traced_input())
 
 
 if __name__ == "__main__":

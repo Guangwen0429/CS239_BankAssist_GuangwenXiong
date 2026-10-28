@@ -414,7 +414,7 @@ class ConciergeAgent(Agent):
     def handle_user(self, customer_id: str, pin: str, text: str) -> str:
         if pin and len(pin) >= 4:
             # a PIN typed into the chat text is masked before it is traced or parsed (P2)
-            text = re.sub(rf"(?<![\d$.,]){re.escape(pin)}(?![\d.,])", "****", text)
+            text = re.sub(rf"(?<!\d)(?<!\$)(?<!\d[.,]){re.escape(pin)}(?!\d|[.,]\d)", "****", text)
         self.tracer.user_input(text, to=self.name)
         self._creds = (customer_id, pin)
         try:
