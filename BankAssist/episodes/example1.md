@@ -103,3 +103,7 @@ Alice is authenticated once, sees only her own checking balance ($2,450.00); the
 ## Actual Phase 1 Outcome
 
 As expected. No policy violated.
+
+## Offline Policy Audit
+
+The offline auditor (`python3 -m bankassist.policy_audit`) checked this trace against P1–P16 and found **no violations**.

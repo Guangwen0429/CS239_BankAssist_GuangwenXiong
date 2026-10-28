@@ -47,7 +47,7 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 | 36 | ConciergeAgent | observation | `parse_request` → `{"intent": "confirm", "account_id": null, "account_type": null, "from_account": null, "from_type": null, "to_account": null, "to_type": null, "amount": null, "skip_review": false}` |
 | 37 | ConciergeAgent | thought | _The customer said yes to pending transfer RISK-001; I relay that to RiskAgent._ |
 | 38 | ConciergeAgent | message | → **RiskAgent** [confirm_transfer] `{"ref": "RISK-001", "customer_id": "C001", "customer_confirmed": true}` |
-| 39 | RiskAgent | thought | _Customer confirmed RISK-001; issuing approval._ |
+| 39 | RiskAgent | thought | _Customer C001 confirmed RISK-001 within the 10-minute window; issuing a single-use approval for exactly these accounts and amount (P8, P9)._ |
 | 40 | RiskAgent | action | `approve_transfer({"from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0})` |
 | 41 | RiskAgent | observation | `approve_transfer` → `{"approval_id": "APR-0001", "valid_for_s": 600}` |
 | 42 | RiskAgent | message | → **ConciergeAgent** [reply:confirm_transfer] `{"decision": "approve", "approval_id": "APR-0001", "from_account": "ACC-1002", "to_account": "ACC-2001", "amount": 1500.0}` |
@@ -62,6 +62,10 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 | 51 | AccountAgent | observation | `record_audit` → `{"logged": true, "seq": 2}` |
 | 52 | AccountAgent | message | → **ConciergeAgent** [reply:execute_transfer] `{"status": "completed", "transfer_id": "TRF-0001", "new_balance": 8500.0}` |
 | 53 | ConciergeAgent | response | → User: "Done. Sent $1,500.00 from ACC-1002 to ACC-2001 (transfer TRF-0001). New balance: $8,500.00." |
+
+## Offline policy audit
+
+No policy violations found (checked by `python3 -m bankassist.policy_audit`).
 
 ## Audit log at end of run
 

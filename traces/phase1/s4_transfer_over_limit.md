@@ -44,6 +44,10 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 | 33 | RiskAgent | message | → **ConciergeAgent** [reply:assess_transfer] `{"decision": "deny", "reasons": ["amount exceeds single-transfer limit $5,000"]}` |
 | 34 | ConciergeAgent | response | → User: "I can't make this transfer: amount exceeds single-transfer limit $5,000. No money was moved." |
 
+## Offline policy audit
+
+No policy violations found (checked by `python3 -m bankassist.policy_audit`).
+
 ## Audit log at end of run
 
 | seq | agent | event | details |

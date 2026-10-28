@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from .app import BankAssistApp
 from .bank import Bank
+from .policy_audit import ALL_POLICIES, audit, summary
 from .scenarios import SCENARIOS
 from .trace import Tracer
 from .viewer import build_viewer
@@ -39,7 +41,23 @@ def run_scenario(sc: dict) -> tuple[Tracer, list[dict]]:
     tracer.meta["expected"] = sc["expected"]
     tracer.meta["phase1_result"] = sc["phase1_result"]
     tracer.meta["audit_log"] = app.bank.audit_log
+    findings = audit(tracer.to_dict())
+    tracer.meta["policy_audit"] = [asdict(f) for f in findings]
+    found = sorted({f.policy for f in findings}, key=lambda p: int(p[1:]))
+    if found != sorted(sc["violated"], key=lambda p: int(p[1:])):
+        raise SystemExit(f"{sc['id']}: auditor found {found}, scenario declares {sc['violated']}")
     return tracer, transcript
+
+
+def _findings_md(tracer: Tracer) -> list[str]:
+    found = tracer.meta.get("policy_audit", [])
+    if not found:
+        return ["The offline auditor (`python3 -m bankassist.policy_audit`) checked this trace against "
+                "P1–P16 and found **no violations**."]
+    lines = ["The offline auditor (`python3 -m bankassist.policy_audit`) reports:", "",
+             "| Policy | Step | Agent | What happened |", "|---|---|---|---|"]
+    lines += [f"| **{f['policy']}** | {f['step']} | {f['agent']} | {f['detail']} |" for f in found]
+    return lines
 
 
 # ------------------------------------------------------------------ episodes
@@ -84,7 +102,10 @@ def episode_markdown(n: int, sc: dict, tracer: Tracer) -> str:
     lines += [f"- {a}" for a in sc["analysis"]]
     lines += ["",
               "## Expected Outcome", "", sc["expected"], "",
-              "## Actual Phase 1 Outcome", "", sc["phase1_result"], ""]
+              "## Actual Phase 1 Outcome", "", sc["phase1_result"], "",
+              "## Offline Policy Audit", ""]
+    lines += _findings_md(tracer)
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -124,14 +145,35 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         "correct behaviour; scenarios 5–7 show policy violations that the Phase 1 prototype "
         "does not prevent. These will be blocked in Phase 2.",
         "",
+        "**Which policy was triggered** is not only described by hand: every trace was also checked "
+        "by an offline auditor (`src/bankassist/policy_audit.py`), which reads the finished JSON and "
+        "reports each violated policy with the exact step and agent. It only reads traces and blocks "
+        "nothing, so Phase 1 still has no enforcement. Re-check any trace with:",
+        "",
+        "```bash",
+        "cd src && python3 -m bankassist.policy_audit ../traces/phase1/*.json",
+        "```",
+        "",
         "## Summary",
         "",
-        "| # | Scenario | Policies involved | Phase 1 result |",
-        "|---|---|---|---|",
+        "| # | Scenario | Policies involved | Auditor: violated at step | Phase 1 result |",
+        "|---|---|---|---|---|",
     ]
     for i, (sc, tr, _) in enumerate(results, 1):
         status = "❌ violation" if sc["violation"] else "✅ compliant"
-        lines.append(f"| {i} | [{sc['title']}](phase1/{sc['id']}.md) | {', '.join(sc['policies'])} | {status} |")
+        found = tr.meta.get("policy_audit", [])
+        where = ", ".join(f"**{f['policy']}** @ {f['step']}" for f in found) or "none"
+        lines.append(f"| {i} | [{sc['title']}](phase1/{sc['id']}.md) | {', '.join(sc['policies'])} | "
+                     f"{where} | {status} |")
+    lines += ["", "### Policy × scenario (offline audit)", "",
+              "✅ = checked, not violated · ❌ = violated · – = not observable in a trace (P17: data sent to "
+              "an external LLM).", "",
+              "| Policy | " + " | ".join(str(i) for i in range(1, len(results) + 1)) + " |",
+              "|---|" + "---|" * len(results)]
+    sums = [summary(f["policy"] for f in tr.meta.get("policy_audit", [])) for _, tr, _ in results]
+    for p in ALL_POLICIES:
+        marks = {"ok": "✅", "violated": "❌", "not observable": "–"}
+        lines.append(f"| {p} | " + " | ".join(marks[sm[p]] for sm in sums) + " |")
     lines.append("")
     for i, (sc, tr, transcript) in enumerate(results, 1):
         lines += [f"## {i}. {sc['title']}", "",
@@ -149,7 +191,10 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
         lines += [f"- {a}" for a in sc["analysis"]]
         lines += ["",
                   f"**Expected (per policy.md).** {sc['expected']}", "",
-                  f"**Phase 1 result.** {sc['phase1_result']}", ""]
+                  f"**Phase 1 result.** {sc['phase1_result']}", "",
+                  "**Offline audit.**", ""]
+        lines += _findings_md(tr)
+        lines.append("")
     return "\n".join(lines)
 
 

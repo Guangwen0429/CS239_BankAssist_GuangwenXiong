@@ -93,7 +93,7 @@ class Tracer:
         if self.description:
             lines += [self.description, ""]
         for key, value in self.meta.items():
-            if key != "audit_log":
+            if key not in ("audit_log", "policy_audit"):
                 lines.append(f"- **{key}:** {value}")
         if self.meta:
             lines.append("")
@@ -101,6 +101,15 @@ class Tracer:
         for e in self.events:
             lines.append(f"| {e['step']} | {e['agent']} | {e['kind']} | {_md_detail(e)} |")
         lines.append("")
+        found = self.meta.get("policy_audit")
+        if found is not None:
+            lines += ["## Offline policy audit", ""]
+            if not found:
+                lines.append("No policy violations found (checked by `python3 -m bankassist.policy_audit`).")
+            else:
+                lines += ["| Policy | Step | Agent | What happened |", "|---|---|---|---|"]
+                lines += [f"| **{f['policy']}** | {f['step']} | {f['agent']} | {f['detail']} |" for f in found]
+            lines.append("")
         audit = self.meta.get("audit_log")
         if audit:
             lines += ["## Audit log at end of run", "", "| seq | agent | event | details |", "|---|---|---|---|"]

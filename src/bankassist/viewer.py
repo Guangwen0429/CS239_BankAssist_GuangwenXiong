@@ -32,12 +32,13 @@ main{padding:0 20px 40px}.meta{background:var(--card);border:1px solid var(--lin
 .ev{border-left:3px solid currentColor;padding:4px 6px;border-radius:4px;background:color-mix(in srgb,currentColor 8%,transparent);font-size:12.5px;word-break:break-word}
 .ev .k{font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;opacity:.85}
 .ev code{font-size:11.5px;color:var(--fg)}.ev .t{color:var(--fg)}
+.ev.flag{outline:2px solid var(--bad);outline-offset:1px}.ev .pv{display:inline-block;margin-top:3px;font-size:11px;font-weight:700;color:var(--bad)}
 .hidden{display:none}.User{color:var(--user)}.ConciergeAgent{color:var(--concierge)}.AuthAgent{color:var(--auth)}
 .RiskAgent{color:var(--risk)}.AccountAgent{color:var(--account)}
 @media (max-width:700px){header,nav,main{padding-left:16px;padding-right:16px}}
 </style></head><body>
 <header><h1>BankAssist: Phase 1 traces</h1>
-<div class="sub">Each row is one trace event. Columns are agents. Arrows mark inter-agent messages. PINs are masked.</div></header>
+<div class="sub">Each row is one trace event. Columns are agents. Arrows mark inter-agent messages. PINs are masked. Steps outlined in red are policy violations found by the offline auditor.</div></header>
 <nav id="nav"></nav><main id="main"></main>
 <script>
 const LANES=__LANES__;const TRACES=__TRACES__;
@@ -52,10 +53,11 @@ function body(e){switch(e.kind){
  case'response':return `<span class="t">“${esc(e.content)}”</span>`;}return j(e)}
 let cur=0,shown=0;
 function render(i){cur=i;const t=TRACES[i];document.querySelectorAll('nav button').forEach((b,k)=>b.classList.toggle('on',k===i));
- const m=t.meta||{};let h=`<div class="meta"><b>${esc(t.title)}</b><br>${esc(t.description)}<br><span class="sub">Policies: ${esc(m.policies||'')} · Concierge mode: ${esc(m.concierge_mode||'')}</span><br><b>Expected:</b> ${esc(m.expected||'')}<br><b>Phase 1 result:</b> ${esc(m.phase1_result||'')}</div>`;
+ const m=t.meta||{};let h=`<div class="meta"><b>${esc(t.title)}</b><br>${esc(t.description)}<br><span class="sub">Policies: ${esc(m.policies||'')} · Concierge mode: ${esc(m.concierge_mode||'')}</span><br><b>Expected:</b> ${esc(m.expected||'')}<br><b>Phase 1 result:</b> ${esc(m.phase1_result||'')}<br><b>Offline audit:</b> ${(m.policy_audit||[]).length?(m.policy_audit||[]).map(f=>`<span style="color:var(--bad)">${esc(f.policy)} at step ${f.step}</span>`).join(', '):'no violations'}</div>`;
  h+=`<div class="controls"><button id="step">Next step ▸</button><button id="all">Show all</button><span class="sub" id="cnt"></span></div><div class="grid">`;
  h+=LANES.map(l=>`<div class="head ${l}">${l}</div>`).join('');
- t.events.forEach((e,n)=>{const col=LANES.indexOf(e.agent);LANES.forEach((l,c)=>{h+=`<div class="cell r${n}">${c===col?`<div class="ev ${l}"><div class="k">${e.step}. ${e.kind}</div>${body(e)}</div>`:''}</div>`})});
+ const flags={};(m.policy_audit||[]).forEach(f=>{(flags[f.step]=flags[f.step]||[]).push(f)});
+ t.events.forEach((e,n)=>{const col=LANES.indexOf(e.agent);const fl=flags[e.step]||[];LANES.forEach((l,c)=>{h+=`<div class="cell r${n}">${c===col?`<div class="ev ${l}${fl.length?' flag':''}"><div class="k">${e.step}. ${e.kind}</div>${body(e)}${fl.map(f=>`<div class="pv" title="${esc(f.detail)}">✖ violates ${esc(f.policy)}: ${esc(f.detail)}</div>`).join('')}</div>`:''}</div>`})});
  h+='</div>';document.getElementById('main').innerHTML=h;shown=t.events.length;upd();
  document.getElementById('step').onclick=()=>{if(shown>=t.events.length)shown=0;shown++;upd()};
  document.getElementById('all').onclick=()=>{shown=t.events.length;upd()}}

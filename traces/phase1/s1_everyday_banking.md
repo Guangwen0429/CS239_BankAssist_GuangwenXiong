@@ -88,6 +88,10 @@ Alice logs in, checks her checking balance, sends $200 to Bob (a saved payee) an
 | 77 | AccountAgent | message | → **ConciergeAgent** [reply:get_transactions] `{"status": "ok", "account_id": "ACC-1001", "transactions": [{"date": "2026-10-20", "desc": "Payroll deposit", "amount": 3200.0}, {"date": "2026-10-22", "desc": "Rent - Westwood Apts", "amount": -1850.0}, {"date": "2026-10-24", "desc": "Trader Joe's", "amount": -64.18}, {"date": "2026-10-25", "desc": "Pharmacy - prescription", "amount": -42.5}, {"date": "2026-10-28", "desc": "Transfer to ACC-2001", "amount": -200.0}]}` |
 | 78 | ConciergeAgent | response | → User: "Recent transactions on ACC-1001: 2026-10-20 Payroll deposit $3,200.00; 2026-10-22 Rent - Westwood Apts -$1,850.00; 2026-10-24 Trader Joe's -$64.18; 2026-10-25 Pharmacy - prescription -$42.50; 2026-10-28 Transfer to ACC-2001 -$200.00." |
 
+## Offline policy audit
+
+No policy violations found (checked by `python3 -m bankassist.policy_audit`).
+
 ## Audit log at end of run
 
 | seq | agent | event | details |

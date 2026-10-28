@@ -54,6 +54,10 @@ Someone who does not know Alice's PIN tries three times, then tries the correct 
 | 43 | AuthAgent | message | → **ConciergeAgent** [reply:authenticate] `{"status": "failed", "reason": "locked"}` |
 | 44 | ConciergeAgent | response | → User: "For your security this profile is locked after too many failed PIN attempts. Please call 1-800-555-0100 to unlock it." |
 
+## Offline policy audit
+
+No policy violations found (checked by `python3 -m bankassist.policy_audit`).
+
 ## Audit log at end of run
 
 | seq | agent | event | details |
