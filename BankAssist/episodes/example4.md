@@ -11,6 +11,8 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 
 ## Trajectory
 
+_Step numbers match the full JSON trace; `record_audit` calls are left out here for readability._
+
 1. **User → ConciergeAgent**: "Send $6,000 to ACC-1001"
 2. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 3. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C003", "pin": "****"}`
@@ -42,6 +44,10 @@ Carol tries to send $6,000, which is above the $5,000 single-transfer limit.
 ## Policy Connection
 
 P8, P10, P14 (see `policy.md`).
+
+- P10: RiskAgent's rules deny the $6,000 request (single-transfer limit $5,000) and audit it as `transfer_denied`.
+- P8: because there is no approval, the ConciergeAgent never sends `execute_transfer`; AccountAgent never calls `transfer_funds`.
+- P14: the customer is told the transfer cannot be made.
 
 ## Expected Outcome
 

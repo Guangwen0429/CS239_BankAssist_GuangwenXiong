@@ -12,6 +12,8 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 
 ## Trajectory
 
+_Step numbers match the full JSON trace; `record_audit` calls are left out here for readability._
+
 1. **User → ConciergeAgent**: "Please transfer $1,500 from savings to ACC-2001 for the October rent split."
 2. **ConciergeAgent** (thought): No active session; asking AuthAgent to verify the customer first.
 3. **ConciergeAgent → AuthAgent** `authenticate`: `{"customer_id": "C001", "pin": "****"}`
@@ -59,6 +61,11 @@ Alice sends $1,500 from savings to Bob's account. Because the amount is over $1,
 ## Policy Connection
 
 P1, P7, P8, P9, P10, P11, P14 (see `policy.md`).
+
+- P9: RiskAgent replies `confirmation_required` (amount above $1,000) and no approval is issued in turn 1; the customer sees the exact amount, source and destination.
+- P8: in turn 2 the customer's YES is relayed as `confirm_transfer`; RiskAgent issues `APR-0001`, and only after that is `execute_transfer` sent to AccountAgent with that approval ID.
+- P11: the `assess_transfer` payload contains only customer_id, from_account, to_account and amount.
+- P7/P14: only AccountAgent calls `transfer_funds`; the reply reports the new savings balance from its result.
 
 ## Expected Outcome
 

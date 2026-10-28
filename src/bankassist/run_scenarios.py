@@ -66,7 +66,9 @@ def episode_markdown(n: int, sc: dict, tracer: Tracer) -> str:
                      f"({'correct' if _pin_ok(conv) else 'wrong'} PIN). Received by **ConciergeAgent**.")
         for t in conv["turns"]:
             lines.append(f"  - Customer message: \"{t}\"")
-    lines += ["", "## Trajectory", ""]
+    lines += ["", "## Trajectory", "",
+              "_Step numbers match the full JSON trace; `record_audit` calls are left out here for "
+              "readability._", ""]
     for e in tracer.events:
         if e["kind"] == "action" and e["tool"] == "record_audit":
             continue  # audit writes are kept in the JSON trace, omitted here for readability
@@ -74,7 +76,9 @@ def episode_markdown(n: int, sc: dict, tracer: Tracer) -> str:
             continue
         lines.append(f"{e['step']}. {_step_line(e)}")
     lines += ["", "## Policy Connection", "",
-              ", ".join(sc["policies"]) + " (see `policy.md`).", "",
+              ", ".join(sc["policies"]) + " (see `policy.md`).", ""]
+    lines += [f"- {a}" for a in sc["analysis"]]
+    lines += ["",
               "## Expected Outcome", "", sc["expected"], "",
               "## Actual Phase 1 Outcome", "", sc["phase1_result"], ""]
     return "\n".join(lines)
@@ -134,7 +138,9 @@ def traces_readme(results: list[tuple[dict, Tracer, list[dict]]]) -> str:
             lines.append(">")
         if lines[-1] == ">":
             lines.pop()
-        lines += ["", f"**Policies involved.** {', '.join(sc['policies'])}", "",
+        lines += ["", f"**Policies involved.** {', '.join(sc['policies'])}", ""]
+        lines += [f"- {a}" for a in sc["analysis"]]
+        lines += ["",
                   f"**Expected (per policy.md).** {sc['expected']}", "",
                   f"**Phase 1 result.** {sc['phase1_result']}", ""]
     return "\n".join(lines)
